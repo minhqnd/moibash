@@ -191,12 +191,14 @@ curl -s -X POST \
 
 ## 🎯 Tính năng nổi bật
 
+## 🎯 Tính năng nổi bật
+
 ### 1. ✨ Gemini tự động chuẩn hóa tên địa điểm
 Không cần code xử lý phức tạp - Gemini làm tất cả:
 - `"Hà Nội"` → `"Ha Noi"` (bỏ dấu)
 - `"Đà Nẵng"` → `"Da Nang"`
 - `"Hồ Chí Minh"` → `"Ho Chi Minh"`
-- Giữ nguyên khoảng trắng để Geocoding API hoạt động tốt
+- Giữ nguyên khoảng trắng để API nhận diện tốt hơn
 
 **Cách thực hiện:** Hướng dẫn Gemini trong `description` của function parameter:
 ```json
@@ -216,6 +218,25 @@ Không cần code xử lý phức tạp - Gemini làm tất cả:
 - Đảm bảo chọn đúng thủ đô Hanoi thay vì thị trấn Hà Nội ở Hà Nam
 
 ### 3. 💬 Response đầy đủ với System Instruction
+Gemini tự động tạo phân tích thời tiết chi tiết:
+- Đánh giá nhiệt độ (nóng/mát/lạnh)
+- Tình trạng mưa
+- Gợi ý trang phục
+- Lời khuyên hoạt động ngoài trời
+
+### 4. 🧹 Code đơn giản, không fallback phức tạp
+- Chỉ sử dụng Python3 (bắt buộc)
+- Loại bỏ các fallback sed phức tạp
+- Code dễ đọc, dễ maintain
+
+### 2. 🎯 Smart location matching
+- Lấy 5 kết quả từ Geocoding API
+- Ưu tiên theo:
+  - `PPLC` (capital) > `PPLA` (admin) > `PPL` (populated)
+  - Dân số cao hơn
+- Đảm bảo chọn đúng thủ đô Hanoi thay vì thị trấn Hà Nội ở Hà Nam
+
+### 3. 💬 Response đầy đủ với System Instruction
 Gemini tự động tạo phân tích thời tiết đầy đủ:
 - Đánh giá nhiệt độ (nóng/mát/lạnh)
 - Tình trạng mưa
@@ -226,7 +247,7 @@ Gemini tự động tạo phân tích thời tiết đầy đủ:
 
 - **bash** (zsh hoặc bash)
 - **curl** (gọi API)
-- **python3** (parse JSON - optional, có fallback)
+- **python3** (bắt buộc - không có fallback)
 - **GEMINI_API_KEY** trong file `.env`
 
 ## ⚙️ Cấu hình
@@ -256,6 +277,12 @@ GEMINI_API_KEY='your-gemini-api-key-here'
 💡 Vui lòng đặt câu hỏi rõ ràng hơn
 ```
 → Đặt câu hỏi rõ ràng hơn với tên địa điểm cụ thể
+
+### 4. Không có Python3
+```
+❌ Lỗi: Cần Python3 để chạy
+```
+→ Cài đặt Python3 (hầu hết hệ thống hiện đại đều có sẵn)
 
 ## 📚 Tài liệu tham khảo
 
