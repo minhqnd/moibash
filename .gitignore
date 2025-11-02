@@ -1,2 +1,19 @@
+# API Keys và sensitive data
 .env
+*.key
+
+# Temporary files
+/tmp/
+*.tmp
+*.log
+
+# Chat history
+chat_history*.txt
+gemini_conversation*.json
+
+# macOS
 .DS_Store
+
+# Backup files
+*.backup
+*~
