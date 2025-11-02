@@ -214,6 +214,13 @@ execute_file() {
         return 1
     fi
     
+    # Validate file path to prevent path traversal attacks
+    local resolved_path=$(realpath "$file_path" 2>/dev/null)
+    if [ $? -ne 0 ] || [ ! -f "$resolved_path" ]; then
+        echo "{\"error\": \"Invalid file path\"}"
+        return 1
+    fi
+    
     # Xác định interpreter dựa trên extension
     local ext="${file_path##*.}"
     local interpreter=""
@@ -229,13 +236,10 @@ execute_file() {
             interpreter="node"
             ;;
         *)
-            # Nếu không có extension phù hợp, thử chmod +x và chạy trực tiếp
+            # Nếu không có extension phù hợp, kiểm tra nếu file đã có quyền thực thi
             if [ ! -x "$file_path" ]; then
-                chmod +x "$file_path" 2>/dev/null
-                if [ $? -ne 0 ]; then
-                    echo "{\"error\": \"File không có quyền thực thi và không xác định được interpreter\"}"
-                    return 1
-                fi
+                echo "{\"error\": \"File không có extension hỗ trợ (py/sh/js) và không có quyền thực thi. Chỉ hỗ trợ Python, Bash, Node.js scripts.\"}"
+                return 1
             fi
             ;;
     esac

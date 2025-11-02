@@ -15,7 +15,7 @@ import requests
 # Constants
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / "../../.env"
-MAX_ITERATIONS = 15
+MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # Session state for "always accept"
@@ -294,9 +294,13 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     # Đọc input từ user
     try:
         choice = input().strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        print("\n❌ Đã hủy thao tác", file=sys.stderr)
+    except EOFError:
+        print("\n❌ Đã hủy thao tác (EOF)", file=sys.stderr)
         return False
+    except KeyboardInterrupt:
+        print("\n❌ Đã hủy thao tác (Ctrl+C)", file=sys.stderr)
+        # Re-raise to allow proper cleanup
+        raise
     
     # Xử lý lựa chọn
     if choice in ['y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
@@ -468,13 +472,14 @@ def parse_response(response: Dict) -> tuple:
 
 def main():
     """Main entry point"""
-    # Get user message
-    if len(sys.argv) < 2:
-        print("❌ Lỗi: Vui lòng cung cấp yêu cầu về file!", file=sys.stderr)
-        sys.exit(1)
-    
-    user_message = sys.argv[1]
-    debug_print(f"User message: {user_message}")
+    try:
+        # Get user message
+        if len(sys.argv) < 2:
+            print("❌ Lỗi: Vui lòng cung cấp yêu cầu về file!", file=sys.stderr)
+            sys.exit(1)
+        
+        user_message = sys.argv[1]
+        debug_print(f"User message: {user_message}")
     
     # Check API key
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -549,8 +554,18 @@ def main():
             print(f"❌ Lỗi: {value}", file=sys.stderr)
             sys.exit(1)
     
-    print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
-    sys.exit(1)
+        print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
+        sys.exit(1)
+    
+    except KeyboardInterrupt:
+        print("\n\n❌ Đã hủy bởi user (Ctrl+C)", file=sys.stderr)
+        sys.exit(130)  # Standard exit code for Ctrl+C
+    except Exception as e:
+        print(f"❌ Lỗi không mong đợi: {str(e)}", file=sys.stderr)
+        if DEBUG:
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
