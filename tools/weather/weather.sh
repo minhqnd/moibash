@@ -12,14 +12,12 @@ if [ -z "$LOCATION" ]; then
 fi
 
 # Bước 1: Chuyển đổi tên địa điểm sang tọa độ
-# Encode location name cho URL
+# Encode spaces for URL
 encoded_location=$(echo "$LOCATION" | sed 's/ /+/g')
-
 geocode_response=$(curl -s "https://geocoding-api.open-meteo.com/v1/search?name=${encoded_location}&count=1&language=en")
 
-# Parse latitude và longitude
-if command -v python3 &> /dev/null; then
-    coordinates=$(echo "$geocode_response" | python3 -c "
+# Parse latitude và longitude (lấy kết quả đầu tiên)
+coordinates=$(echo "$geocode_response" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -30,18 +28,7 @@ try:
         print('NOT_FOUND')
 except:
     print('ERROR')
-" 2>/dev/null)
-else
-    # Fallback nếu không có python
-    latitude=$(echo "$geocode_response" | grep -o '"latitude"[[:space:]]*:[[:space:]]*[0-9.-]*' | head -1 | grep -o '[0-9.-]*$')
-    longitude=$(echo "$geocode_response" | grep -o '"longitude"[[:space:]]*:[[:space:]]*[0-9.-]*' | head -1 | grep -o '[0-9.-]*$')
-    
-    if [ -z "$latitude" ] || [ -z "$longitude" ]; then
-        coordinates="NOT_FOUND"
-    else
-        coordinates="${latitude}|${longitude}|${LOCATION}|"
-    fi
-fi
+")
 
 # Kiểm tra kết quả geocoding
 if [ "$coordinates" == "NOT_FOUND" ]; then
@@ -59,8 +46,7 @@ IFS='|' read -r latitude longitude location_name country <<< "$coordinates"
 weather_response=$(curl -s "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m,rain&current=temperature_2m,rain&timezone=Asia%2FBangkok&forecast_days=1")
 
 # Parse thông tin thời tiết
-if command -v python3 &> /dev/null; then
-    weather_info=$(echo "$weather_response" | python3 -c "
+weather_info=$(echo "$weather_response" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -85,13 +71,6 @@ try:
     print(json.dumps(result, ensure_ascii=False))
 except Exception as e:
     print(json.dumps({'error': f'Lỗi parse dữ liệu: {str(e)}'}))
-" 2>/dev/null)
-else
-    # Fallback parsing
-    temp=$(echo "$weather_response" | grep -o '"temperature_2m"[[:space:]]*:[[:space:]]*[0-9.-]*' | head -1 | grep -o '[0-9.-]*$')
-    rain=$(echo "$weather_response" | grep -o '"rain"[[:space:]]*:[[:space:]]*[0-9.-]*' | head -1 | grep -o '[0-9.-]*$')
-    
-    weather_info="{\"location\": \"$location_name\", \"country\": \"$country\", \"temperature\": $temp, \"rain\": $rain, \"unit\": \"°C\"}"
-fi
+")
 
 echo "$weather_info"

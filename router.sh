@@ -22,32 +22,89 @@ TOOLS_DIR="$SCRIPT_DIR/tools"
 SPINNER_PID=""
 SPINNER_ACTIVE=0
 
-# Danh sách câu chờ hài hước (có thể tuỳ biến)
-SPINNER_MESSAGES=(
-    "Đang khởi động agent thông minh nhất thế giới"
-    "Đang truy cập thông tin từ thời Tam Quốc"
-    "Đang kết nối với trạm ISS lấy kết quả"
-    "Đang hỏi ý kiến hội đồng cố vấn AI"
-    "Đang lục tung kho dữ liệu tối mật"
-    "Đang gọi điện cho người trong tương lai"
-    "Đang phân tích câu hỏi bằng lượng tử"
-    "Đang đánh thức mô hình sau giấc ngủ đông"
-    "Đang vi vu trên đám mây tìm đáp án"
+# Danh sách câu chờ theo intent
+SPINNER_CHAT=(
+    "🤖 Đang khởi động agent thông minh nhất thế giới"
+    "💭 Đang truy cập thông tin từ thời Tam Quốc"
+    "🚀 Đang kết nối với trạm ISS lấy kết quả"
+    "🧠 Đang hỏi ý kiến hội đồng cố vấn AI"
+    "🔒 Đang lục tung kho dữ liệu tối mật"
+    "⏰ Đang gọi điện cho người trong tương lai"
+    "⚛️ Đang phân tích câu hỏi bằng lượng tử"
+    "😴 Đang đánh thức mô hình sau giấc ngủ đông"
+    "☁️ Đang vi vu trên đám mây tìm đáp án"
 )
 
-random_spinner_message() {
-    local n=${#SPINNER_MESSAGES[@]}
+SPINNER_SEARCH=(
+    "🔍 Đang lục tung Google tìm kiếm thông tin"
+    "🔍 Đang đào sâu vào kho dữ liệu web"
+    "🤖 Đang hỏi ý kiến các công cụ tìm kiếm"
+    "📡 Đang truy cập mạng lưới thông tin toàn cầu"
+    "📊 Đang phân tích kết quả tìm kiếm"
+)
+
+SPINNER_IMAGE=(
+    "🎨 Đang vẽ tranh cho bạn nè"
+    "🖼️ Đang tạo ảnh đẹp mắt từ trí tưởng tượng"
+    "🤖 Đang nhờ họa sĩ AI vẽ tranh"
+    "🎨 Đang pha màu và vẽ nét"
+    "✨ Đang hoàn thiện bức ảnh"
+)
+
+SPINNER_CALENDAR=(
+    "📅 Đang nhờ trợ lý kiểm tra lịch cho bạn"
+    "📓 Đang lục tung sổ tay ghi chú"
+    "🤖 Đang hỏi ý kiến trợ lý lịch"
+    "📅 Đang kiểm tra các sự kiện sắp tới"
+    "📋 Đang sắp xếp lịch trình"
+)
+
+SPINNER_WEATHER=(
+    "🌤️ Đang ra ngoài trời nhìn mây"
+    "📺 Đang xem dự báo thời tiết trên TV"
+    "☀️ Đang hỏi ý kiến ông trời"
+    "🌡️ Đang kiểm tra nhiệt độ và gió"
+    "🗺️ Đang phân tích bản đồ thời tiết"
+)
+
+get_random_message_for_intent() {
+    local intent="$1"
+    local messages=()
+    
+    case "$intent" in
+        chat)
+            messages=("${SPINNER_CHAT[@]}")
+            ;;
+        google_search)
+            messages=("${SPINNER_SEARCH[@]}")
+            ;;
+        image_create)
+            messages=("${SPINNER_IMAGE[@]}")
+            ;;
+        calendar)
+            messages=("${SPINNER_CALENDAR[@]}")
+            ;;
+        weather)
+            messages=("${SPINNER_WEATHER[@]}")
+            ;;
+        *)
+            messages=("${SPINNER_CHAT[@]}")  # Default to chat
+            ;;
+    esac
+    
+    local n=${#messages[@]}
     if [ "$n" -eq 0 ]; then
         echo "Đang xử lý yêu cầu"
         return
     fi
     local idx=$(( RANDOM % n ))
-    echo "${SPINNER_MESSAGES[$idx]}"
+    echo "${messages[$idx]}"
 }
 
 start_spinner() {
+    local intent="$1"
     local msg
-    msg=${1:-"$(random_spinner_message)"}
+    msg=$(get_random_message_for_intent "$intent")
     # Chỉ hiển thị nếu đầu ra là terminal
     if [ -t 2 ]; then
         SPINNER_ACTIVE=1
@@ -127,6 +184,14 @@ execute_tool() {
         weather)
             "$TOOLS_DIR/weather/function_call.sh" "$message"
             ;;
+        calendar)
+            # Ưu tiên dùng Python version nếu có
+            if [ -f "$TOOLS_DIR/calendar/function_call.py" ]; then
+                "$TOOLS_DIR/calendar/function_call.py" "$message"
+            else
+                "$TOOLS_DIR/calendar/function_call.sh" "$message"
+            fi
+            ;;
         *)
             echo "❌ Intent không hợp lệ: $intent"
             return 1
@@ -148,8 +213,10 @@ if ! check_api_key; then
 fi
 
 # Phân loại intent
-start_spinner
 intent=$(classify_intent "$USER_MESSAGE")
+
+# Bắt đầu spinner với intent cụ thể
+start_spinner "$intent"
 
 # Debug: Hiển thị intent (có thể tắt sau)
 # echo "[Intent: $intent]" >&2
