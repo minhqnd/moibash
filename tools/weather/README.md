@@ -13,14 +13,23 @@ tools/weather/
 
 ## 🚀 Cách hoạt động
 
-### Flow hoạt động:
+### Flow hoạt động (CẢI TIẾN MỚI):
 
 1. **User input** → "Thời tiết ở Hà Nội thế nào?"
-2. **Gemini Function Calling** → Extract location: "Hà Nội"
-3. **Geocoding API** → Chuyển đổi "Hà Nội" → tọa độ (21.0285, 105.8542)
+2. **Gemini Function Calling** → 
+   - Extract location: `"Hà Nội"`
+   - **TỰ ĐỘNG chuẩn hóa**: Bỏ dấu tiếng Việt → `"Ha Noi"`
+   - Giữ nguyên khoảng trắng để API nhận diện tốt hơn
+3. **Geocoding API** → 
+   - Chuyển đổi "Ha Noi" → tìm nhiều kết quả
+   - **Ưu tiên** thủ đô/thành phố lớn (PPLC > PPLA > PPL)
+   - Chọn kết quả có dân số cao nhất → Hanoi (21.0245, 105.84117)
 4. **Weather API** → Lấy thông tin thời tiết từ tọa độ
-5. **Format output** → Hiển thị cho người dùng
-6. **Gemini response** → Tạo câu trả lời tự nhiên
+5. **Gemini với System Instruction** → Tạo phân tích ĐẦY ĐỦ:
+   - 📍 Vị trí & tọa độ
+   - 🌡️ Nhiệt độ
+   - 💧 Lượng mưa
+   - 💬 Nhận xét chi tiết (đánh giá nhiệt độ, gợi ý trang phục, lời khuyên hoạt động)
 
 ### Sơ đồ:
 
@@ -179,6 +188,39 @@ curl -s -X POST \
     }]
   }' | python3 -m json.tool
 ```
+
+## 🎯 Tính năng nổi bật
+
+### 1. ✨ Gemini tự động chuẩn hóa tên địa điểm
+Không cần code xử lý phức tạp - Gemini làm tất cả:
+- `"Hà Nội"` → `"Ha Noi"` (bỏ dấu)
+- `"Đà Nẵng"` → `"Da Nang"`
+- `"Hồ Chí Minh"` → `"Ho Chi Minh"`
+- Giữ nguyên khoảng trắng để Geocoding API hoạt động tốt
+
+**Cách thực hiện:** Hướng dẫn Gemini trong `description` của function parameter:
+```json
+{
+  "location": {
+    "type": "string",
+    "description": "Tên địa điểm cần tra cứu thời tiết. QUAN TRỌNG: Chỉ bỏ dấu tiếng Việt, KHÔNG bỏ khoảng trắng..."
+  }
+}
+```
+
+### 2. 🎯 Smart location matching
+- Lấy 5 kết quả từ Geocoding API
+- Ưu tiên theo:
+  - `PPLC` (capital) > `PPLA` (admin) > `PPL` (populated)
+  - Dân số cao hơn
+- Đảm bảo chọn đúng thủ đô Hanoi thay vì thị trấn Hà Nội ở Hà Nam
+
+### 3. 💬 Response đầy đủ với System Instruction
+Gemini tự động tạo phân tích thời tiết đầy đủ:
+- Đánh giá nhiệt độ (nóng/mát/lạnh)
+- Tình trạng mưa
+- Gợi ý trang phục
+- Lời khuyên hoạt động ngoài trời
 
 ## 📋 Requirements
 

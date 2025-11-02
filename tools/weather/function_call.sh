@@ -52,7 +52,7 @@ function_call_response=$(curl -s -X POST \
                 \"properties\": {
                   \"location\": {
                     \"type\": \"string\",
-                    \"description\": \"Tên địa điểm (thành phố, quận, huyện, quốc gia). Ví dụ: 'Hà Nội', 'London', 'New York', 'Tokyo'\"
+                    \"description\": \"Tên địa điểm cần tra cứu thời tiết. QUAN TRỌNG: Chỉ bỏ dấu tiếng Việt, KHÔNG bỏ khoảng trắng. Ví dụ: 'Hà Nội' → 'Ha Noi', 'Đà Nẵng' → 'Da Nang', 'Hồ Chí Minh' → 'Ho Chi Minh', 'Thành phố Hồ Chí Minh' → 'Thanh pho Ho Chi Minh'. Với tên tiếng Anh thì giữ nguyên: 'London', 'New York', 'Tokyo'.\"
                   }
                 },
                 \"required\": [\"location\"]
@@ -129,40 +129,10 @@ case "$result_type" in
             exit 1
         fi
         
-        # Bước 4: Format kết quả cho người dùng
-        if command -v python3 &> /dev/null; then
-            formatted_output=$(echo "$weather_data" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    location = data.get('location', 'N/A')
-    country = data.get('country', '')
-    temp = data.get('temperature', 'N/A')
-    rain = data.get('rain', 0)
-    time = data.get('time', 'N/A')
-    
-    output = f'''🌤️ Thông tin thời tiết tại {location}'''
-    if country:
-        output += f', {country}'
-    output += f'''
-
-🌡️ Nhiệt độ: {temp}°C
-☔ Lượng mưa: {rain} mm
-🕐 Thời gian: {time}
-📍 Tọa độ: {data.get('latitude', 'N/A')}, {data.get('longitude', 'N/A')}'''
-    
-    print(output)
-except Exception as e:
-    print(f'Lỗi định dạng: {str(e)}')
-" 2>/dev/null)
-        else
-            # Fallback format
-            formatted_output="$weather_data"
-        fi
+        # Bước 4: Format kết quả cho người dùng (tạm thời ẩn để Gemini tự phân tích đầy đủ)
+        # Không hiển thị formatted output trước, để Gemini có thể phân tích đầy đủ hơn
         
-        echo "$formatted_output"
-        
-        # Bước 5: Gửi kết quả lại cho Gemini để tạo response tự nhiên
+        # Bước 5: Gửi kết quả lại cho Gemini với hướng dẫn trả lời đầy đủ
         escaped_weather=$(echo "$weather_data" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n' | sed 's/\\n$//')
         
         final_response=$(curl -s -X POST \
@@ -214,7 +184,12 @@ except Exception as e:
                     }
                   ]
                 }
-              ]
+              ],
+              \"systemInstruction\": {
+                \"parts\": [{
+                  \"text\": \"Bạn là trợ lý thời tiết chuyên nghiệp. Khi nhận được dữ liệu thời tiết, hãy phân tích và trả lời ĐẦY ĐỦ với format sau:\\n\\n🌤️ **Thời tiết tại [Tên địa điểm], [Quốc gia]**\\n\\n📍 **Vị trí:** [latitude], [longitude]\\n🌡️ **Nhiệt độ:** [temperature]°C\\n💧 **Lượng mưa:** [rain] mm\\n🕐 **Thời gian cập nhật:** [time]\\n\\n💬 **Nhận xét:**\\n- Đánh giá nhiệt độ (nóng/mát/lạnh)\\n- Tình trạng mưa\\n- Gợi ý trang phục phù hợp\\n- Lời khuyên cho hoạt động ngoài trời\\n\\nHãy viết bằng tiếng Việt thân thiện và dễ hiểu.\"
+                }]
+              }
             }")
         
         # Parse response cuối cùng
@@ -233,9 +208,22 @@ except:
 " 2>/dev/null)
             
             if [ $? -eq 0 ] && [ ! -z "$natural_response" ]; then
-                echo ""
-                echo "💬 Phân tích:"
                 echo "$natural_response"
+            else
+                # Fallback: hiển thị thông tin cơ bản nếu Gemini không trả về
+                echo "$weather_data" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(f'''🌤️ **Thời tiết tại {data.get('location', 'N/A')}, {data.get('country', 'N/A')}**
+
+📍 **Vị trí:** {data.get('latitude', 'N/A')}, {data.get('longitude', 'N/A')}
+🌡️ **Nhiệt độ:** {data.get('temperature', 'N/A')}°C
+💧 **Lượng mưa:** {data.get('rain', 0)} mm
+🕐 **Thời gian cập nhật:** {data.get('time', 'N/A')}''')
+except:
+    print('Lỗi hiển thị dữ liệu thời tiết')
+"
             fi
         fi
         ;;
