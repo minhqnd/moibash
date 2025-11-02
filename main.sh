@@ -17,7 +17,7 @@ RESET='\033[0m'
 BOLD='\033[1m'
 
 # Đường dẫn đến agent
-AGENT_SCRIPT="./agent.sh"
+ROUTER_SCRIPT="./router.sh"
 
 # File lưu lịch sử chat (tạm thời trong session)
 CHAT_HISTORY="./chat_history_$$.txt"
@@ -95,18 +95,18 @@ call_agent() {
     local user_input="$1"
     
     # Kiểm tra agent script có tồn tại không
-    if [ ! -f "$AGENT_SCRIPT" ]; then
+    if [ ! -f "$ROUTER_SCRIPT" ]; then
         display_error "Không tìm thấy agent.sh! Vui lòng đảm bảo file tồn tại."
         return 1
     fi
     
     # Kiểm tra agent script có quyền thực thi không
-    if [ ! -x "$AGENT_SCRIPT" ]; then
-        chmod +x "$AGENT_SCRIPT"
+    if [ ! -x "$ROUTER_SCRIPT" ]; then
+        chmod +x "$ROUTER_SCRIPT"
     fi
     
     # Gọi agent và nhận response
-    local response=$("$AGENT_SCRIPT" "$user_input")
+    local response=$("$ROUTER_SCRIPT" "$user_input")
     
     if [ $? -eq 0 ]; then
         echo "$response"
@@ -223,7 +223,7 @@ trap cleanup SIGINT SIGTERM
 # ============================================
 
 # Kiểm tra agent.sh có tồn tại không
-if [ ! -f "$AGENT_SCRIPT" ]; then
+if [ ! -f "$ROUTER_SCRIPT" ]; then
     echo -e "${RED}${BOLD}❌ LỖI:${RESET} Không tìm thấy file agent.sh!"
     echo -e "${YELLOW}Vui lòng đảm bảo agent.sh nằm cùng thư mục với main.sh${RESET}"
     exit 1

@@ -26,7 +26,7 @@ SYSTEM_INSTRUCTION="Bạn là một trợ lý AI thân thiện và hữu ích. H
 
 # Gọi API
 response=$(curl -s -X POST \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$GEMINI_API_KEY" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -d "{
       \"contents\": [{
@@ -43,6 +43,20 @@ response=$(curl -s -X POST \
       }
     }")
 
+# Kiểm tra error trong response
+if echo "$response" | grep -q '"error"'; then
+    error_msg=$(echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(data['error']['message'])
+except:
+    print('API Error')
+" 2>/dev/null)
+    echo "❌ API Error: $error_msg"
+    exit 1
+fi
+
 # Parse response bằng python
 if command -v python3 &> /dev/null; then
     ai_response=$(echo "$response" | python3 -c "
@@ -51,17 +65,23 @@ try:
     data = json.load(sys.stdin)
     text = data['candidates'][0]['content']['parts'][0]['text']
     print(text, end='')
-except:
-    print('❌ Lỗi parse response')
+except Exception as e:
+    print(f'Parse error: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>/dev/null)
+" 2>&1)
     
-    if [ $? -eq 0 ] && [ ! -z "$ai_response" ]; then
+    parse_exit=$?
+    
+    if [ $parse_exit -eq 0 ] && [ ! -z "$ai_response" ]; then
         echo "$ai_response"
         exit 0
+    else
+        echo "❌ Lỗi parse response: $ai_response"
+        echo "Response gốc (100 ký tự đầu): ${response:0:100}"
+        exit 1
     fi
 fi
 
 # Fallback
-echo "❌ Không nhận được phản hồi"
+echo "❌ Python không khả dụng"
 exit 1
