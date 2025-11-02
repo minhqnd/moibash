@@ -132,16 +132,16 @@ except Exception as e:
     IFS='|' read -r status access_token refresh_token expires_in <<< "$parse_result"
     
     if [ "$status" == "SUCCESS" ]; then
-        # Lưu tokens
+        # Lưu tokens với proper escaping
         local current_time=$(date +%s)
         local expiry_time=$((current_time + expires_in))
         
-        cat > "$TOKEN_FILE" << EOF
-ACCESS_TOKEN="$access_token"
-REFRESH_TOKEN="$refresh_token"
-EXPIRY_TIME=$expiry_time
-EOF
+        # Create token file with secure writing
+        touch "$TOKEN_FILE"
         chmod 600 "$TOKEN_FILE"
+        printf 'ACCESS_TOKEN=%s\n' "$(printf '%q' "$access_token")" > "$TOKEN_FILE"
+        printf 'REFRESH_TOKEN=%s\n' "$(printf '%q' "$refresh_token")" >> "$TOKEN_FILE"
+        printf 'EXPIRY_TIME=%s\n' "$expiry_time" >> "$TOKEN_FILE"
         
         echo "✅ Đã lưu tokens thành công!"
         echo "📁 File: $TOKEN_FILE"
@@ -202,15 +202,14 @@ except Exception as e:
     IFS='|' read -r status new_access_token new_expires_in <<< "$parse_result"
     
     if [ "$status" == "SUCCESS" ]; then
-        # Cập nhật token file
+        # Cập nhật token file với proper escaping
         local current_time=$(date +%s)
         local expiry_time=$((current_time + new_expires_in))
         
-        cat > "$TOKEN_FILE" << EOF
-ACCESS_TOKEN="$new_access_token"
-REFRESH_TOKEN="$REFRESH_TOKEN"
-EXPIRY_TIME=$expiry_time
-EOF
+        # Update token file with secure writing
+        printf 'ACCESS_TOKEN=%s\n' "$(printf '%q' "$new_access_token")" > "$TOKEN_FILE"
+        printf 'REFRESH_TOKEN=%s\n' "$(printf '%q' "$REFRESH_TOKEN")" >> "$TOKEN_FILE"
+        printf 'EXPIRY_TIME=%s\n' "$expiry_time" >> "$TOKEN_FILE"
         
         echo "✅ Đã refresh token thành công!"
         return 0

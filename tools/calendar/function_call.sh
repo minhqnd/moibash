@@ -201,18 +201,20 @@ get_current_time_impl() {
         python3 -c "
 from datetime import datetime
 import json
+import sys
 
+format_arg = sys.argv[1] if len(sys.argv) > 1 else 'iso8601'
 now = datetime.now()
 
-if '$format' == 'iso8601':
+if format_arg == 'iso8601':
     result = now.strftime('%Y-%m-%dT%H:%M:%S+07:00')
-elif '$format' == 'date':
+elif format_arg == 'date':
     result = now.strftime('%Y-%m-%d')
 else:
     result = now.strftime('%Y-%m-%d %H:%M:%S')
 
 print(json.dumps({'time': result, 'timestamp': int(now.timestamp())}))
-"
+" "$format"
     else
         local time=$(date '+%Y-%m-%dT%H:%M:%S+07:00')
         echo "{\"time\": \"$time\"}"

@@ -144,27 +144,58 @@ except:
         fi
     fi
     
-    # Build request body
-    local request_body="{
-        \"summary\": \"$summary\",
-        \"start\": {
-            \"dateTime\": \"$start_time\",
-            \"timeZone\": \"Asia/Ho_Chi_Minh\"
-        },
-        \"end\": {
-            \"dateTime\": \"$end_time\",
-            \"timeZone\": \"Asia/Ho_Chi_Minh\"
-        }"
-    
-    if [ ! -z "$description" ]; then
-        request_body="${request_body},\"description\": \"$description\""
+    # Build request body using python for proper JSON escaping
+    if command -v python3 &> /dev/null; then
+        local request_body=$(python3 -c "
+import json
+import sys
+
+data = {
+    'summary': sys.argv[1],
+    'start': {
+        'dateTime': sys.argv[2],
+        'timeZone': 'Asia/Ho_Chi_Minh'
+    },
+    'end': {
+        'dateTime': sys.argv[3],
+        'timeZone': 'Asia/Ho_Chi_Minh'
+    }
+}
+
+if len(sys.argv) > 4 and sys.argv[4]:
+    data['description'] = sys.argv[4]
+if len(sys.argv) > 5 and sys.argv[5]:
+    data['location'] = sys.argv[5]
+
+print(json.dumps(data, ensure_ascii=False))
+" "$summary" "$start_time" "$end_time" "$description" "$location" 2>/dev/null)
+    else
+        # Fallback: basic escaping
+        local escaped_summary=$(echo "$summary" | sed 's/"/\\"/g')
+        local escaped_desc=$(echo "$description" | sed 's/"/\\"/g')
+        local escaped_loc=$(echo "$location" | sed 's/"/\\"/g')
+        
+        local request_body="{
+            \"summary\": \"$escaped_summary\",
+            \"start\": {
+                \"dateTime\": \"$start_time\",
+                \"timeZone\": \"Asia/Ho_Chi_Minh\"
+            },
+            \"end\": {
+                \"dateTime\": \"$end_time\",
+                \"timeZone\": \"Asia/Ho_Chi_Minh\"
+            }"
+        
+        if [ ! -z "$description" ]; then
+            request_body="${request_body},\"description\": \"$escaped_desc\""
+        fi
+        
+        if [ ! -z "$location" ]; then
+            request_body="${request_body},\"location\": \"$escaped_loc\""
+        fi
+        
+        request_body="${request_body}}"
     fi
-    
-    if [ ! -z "$location" ]; then
-        request_body="${request_body},\"location\": \"$location\""
-    fi
-    
-    request_body="${request_body}}"
     
     # Gọi API
     local response=$(curl -s -X POST \
