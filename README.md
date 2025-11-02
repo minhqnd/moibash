@@ -8,6 +8,8 @@
 - 💬 **Chat** - Trò chuyện thông thường  
 - 🎨 **Image Prompt** - Tạo prompt cho AI art
 - 🔍 **Google Search** - Tìm kiếm thông tin thời gian thực
+- 🌤️ **Weather** - Thông tin thời tiết thời gian thực
+- 📅 **Calendar** - Quản lý lịch với Google Calendar
 
 ## 🚀 Cách chạy (3 bước)
 
@@ -49,41 +51,60 @@ Prompt: A majestic fluffy Persian cat...
 Agent: iOS 18.1 được phát hành...
 ```
 
+### Quản lý Lịch
+```
+➜ lịch trình của tôi hôm nay
+📅 Lịch trình hôm nay:
+1. 09:00 - 10:00: Họp team
+
+➜ thêm lịch đi ăn tối lúc 7h
+✅ Đã thêm lịch thành công!
+```
+
 ## 🏗️ Kiến trúc
 
 ```
 User Input
     ↓
-agent.sh (router)
+router.sh (agent)
     ↓
 intent.sh (classify)
     ↓
-┌─────────┬──────────────┬──────────────┐
-│ chat.sh │ image_create │ google_search │
-└─────────┴──────────────┴──────────────┘
+┌─────────┬──────────────┬──────────────┬─────────┬──────────┐
+│ chat.sh │ image_create │ google_search │ weather │ calendar │
+└─────────┴──────────────┴──────────────┴─────────┴──────────┘
 ```
 
 ## 📁 Cấu trúc
 
 ```
 moibash/
-├── agent.sh           # Router chính
+├── router.sh          # Router chính
 ├── main.sh            # Chat UI
 ├── tools/
 │   ├── intent.sh      # Intent classifier
 │   ├── chat.sh        # Chat tool
 │   ├── image_create.sh # Image prompt
-│   └── google_search.sh # Search tool
-└── .env               # API key
+│   ├── google_search.sh # Search tool
+│   ├── weather/       # Weather tool
+│   │   ├── function_call.sh
+│   │   └── weather.sh
+│   └── calendar/      # Calendar tool (NEW)
+│       ├── auth.sh
+│       ├── calendar.sh
+│       └── function_call.sh
+└── .env               # API keys
 ```
 
 ## 🎯 Intent Classification
 
-Agent tự động phân loại 3 loại intent:
+Agent tự động phân loại 5 loại intent:
 
 - **chat** - Câu hỏi thông thường, trò chuyện
 - **image_create** - Yêu cầu tạo/vẽ ảnh  
 - **google_search** - Cần thông tin thời gian thực
+- **weather** - Hỏi về thời tiết
+- **calendar** - Quản lý lịch, xem/thêm/sửa/xóa sự kiện
 
 ## 💬 Lệnh
 

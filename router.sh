@@ -127,6 +127,9 @@ execute_tool() {
         weather)
             "$TOOLS_DIR/weather/function_call.sh" "$message"
             ;;
+        calendar)
+            "$TOOLS_DIR/calendar/function_call.sh" "$message"
+            ;;
         *)
             echo "❌ Intent không hợp lệ: $intent"
             return 1
