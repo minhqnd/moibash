@@ -18,6 +18,45 @@ USER_MESSAGE="$1"
 # Thư mục tools
 TOOLS_DIR="$SCRIPT_DIR/tools"
 
+# Spinner hiển thị khi đợi agent phản hồi
+SPINNER_PID=""
+SPINNER_ACTIVE=0
+
+start_spinner() {
+    local msg
+    msg=${1:-"Đang xử lý yêu cầu"}
+    # Chỉ hiển thị nếu đầu ra là terminal
+    if [ -t 2 ]; then
+        SPINNER_ACTIVE=1
+        {
+            local frames="|/-\\"
+            local i=0
+            while [ "$SPINNER_ACTIVE" -eq 1 ]; do
+                i=$(( (i + 1) % 4 ))
+                printf "\r%s %s" "$msg" "${frames:$i:1}" >&2
+                sleep 0.1
+            done
+        } &
+        SPINNER_PID=$!
+        disown "$SPINNER_PID" 2>/dev/null
+    fi
+}
+
+stop_spinner() {
+    if [ -n "$SPINNER_PID" ]; then
+        SPINNER_ACTIVE=0
+        # Kết thúc tiến trình spinner nếu còn chạy
+        kill "$SPINNER_PID" 2>/dev/null
+        wait "$SPINNER_PID" 2>/dev/null
+        SPINNER_PID=""
+        # Xoá dòng spinner
+        printf "\r\033[K" >&2
+    fi
+}
+
+# Đảm bảo spinner được tắt khi script kết thúc hoặc bị ngắt
+trap 'stop_spinner' EXIT INT TERM
+
 # Hàm kiểm tra API key
 check_api_key() {
     if [ -z "$GEMINI_API_KEY" ]; then
@@ -83,6 +122,7 @@ if ! check_api_key; then
 fi
 
 # Phân loại intent
+start_spinner "Đang xử lý yêu cầu"
 intent=$(classify_intent "$USER_MESSAGE")
 
 # Debug: Hiển thị intent (có thể tắt sau)
@@ -90,5 +130,9 @@ intent=$(classify_intent "$USER_MESSAGE")
 
 # Thực thi tool tương ứng
 execute_tool "$intent" "$USER_MESSAGE"
+exit_code=$?
 
-exit $?
+# Dừng spinner khi đã có phản hồi
+stop_spinner
+
+exit $exit_code
