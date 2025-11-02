@@ -22,6 +22,16 @@ ROUTER_SCRIPT="./router.sh"
 # File lưu lịch sử chat (tạm thời trong session)
 CHAT_HISTORY="./chat_history_$$.txt"
 
+# Hàm parse markdown để hiển thị in đậm và in nghiêng
+parse_markdown() {
+    local text="$1"
+    # Chuyển đổi **bold** thành ANSI bold
+    text=$(echo "$text" | sed 's/\*\*\([^*]*\)\*\*/\\033[1m\1\\033[0m/g')
+    # Chuyển đổi *italic* thành ANSI italic (nếu terminal hỗ trợ)
+    text=$(echo "$text" | sed 's/\*\([^*]*\)\*/\\033[3m\1\\033[0m/g')
+    echo "$text"
+}
+
 # Hàm xóa màn hình
 clear_screen() {
     clear
@@ -71,7 +81,8 @@ display_user_message() {
 display_agent_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    echo -e "${MAGENTA}${BOLD}Agent:${RESET} $message"
+    local formatted_message=$(parse_markdown "$message")
+    echo -e "${MAGENTA}${BOLD}Agent:${RESET} $formatted_message"
     # Lưu vào lịch sử
     echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
     echo ""
@@ -191,7 +202,7 @@ init_chat() {
     show_banner
     
     # Tin nhắn chào mừng từ agent
-    display_agent_message "Xin chào! Tôi là Chat Agent. Rất vui được trò chuyện với bạn! 👋"
+    display_agent_message "Xin chào! Tôi là **Chat Agent** rất *vui* được trò chuyện với bạn! 👋"
 }
 
 # Hàm main loop
