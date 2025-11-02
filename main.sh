@@ -20,7 +20,7 @@ BOLD='\033[1m'
 AGENT_SCRIPT="./agent.sh"
 
 # File lưu lịch sử chat (tạm thời trong session)
-CHAT_HISTORY="/tmp/chat_history_$$.txt"
+CHAT_HISTORY="./chat_history_$$.txt"
 
 # Hàm xóa màn hình
 clear_screen() {
@@ -32,7 +32,7 @@ show_banner() {
     echo -e "${CYAN}${BOLD}"
     echo "╔═══════════════════════════════════════════════════════════╗"
     echo "║                                                           ║"
-    echo "║          🤖  CHAT AGENT - HỆ ĐIỀU HÀNH  🤖               ║"
+    echo "║          🤖  CHAT AGENT - HỆ ĐIỀU HÀNH  🤖                ║"
     echo "║                                                           ║"
     echo "║            Bash Script Chat Interface v1.0                ║"
     echo "║                                                           ║"
@@ -61,7 +61,7 @@ get_timestamp() {
 display_user_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    echo -e "${GRAY}[$timestamp]${RESET} ${GREEN}${BOLD}Bạn:${RESET} $message"
+    echo -e "${GREEN}${BOLD}Bạn:${RESET} $message"
     # Lưu vào lịch sử
     echo "[$timestamp] USER: $message" >> "$CHAT_HISTORY"
 }
@@ -70,7 +70,7 @@ display_user_message() {
 display_agent_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    echo -e "${GRAY}[$timestamp]${RESET} ${MAGENTA}${BOLD}Agent:${RESET} $message"
+    echo -e "${MAGENTA}${BOLD}Agent:${RESET} $message"
     # Lưu vào lịch sử
     echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
     echo ""
@@ -163,7 +163,7 @@ process_input() {
     fi
     
     # Hiển thị tin nhắn của user
-    display_user_message "$user_input"
+    # display_user_message "$user_input"
     
     # Kiểm tra xem có phải lệnh đặc biệt không
     if handle_command "$user_input"; then

@@ -9,7 +9,6 @@
 
 # Chat history
 chat_history*.txt
-gemini_conversation*.json
 
 # macOS
 .DS_Store

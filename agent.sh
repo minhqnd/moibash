@@ -19,14 +19,6 @@ GEMINI_MODEL="gemini-2.0-flash-exp"
 # Nhận tin nhắn từ tham số
 USER_MESSAGE="$1"
 
-# File để lưu lịch sử hội thoại (tạm thời)
-CONVERSATION_HISTORY="/tmp/gemini_conversation_$$.json"
-
-# Khởi tạo file lịch sử nếu chưa tồn tại
-if [ ! -f "$CONVERSATION_HISTORY" ]; then
-    echo '{"contents": []}' > "$CONVERSATION_HISTORY"
-fi
-
 # Hàm kiểm tra API key
 check_api_key() {
     if [ -z "$GEMINI_API_KEY" ]; then
