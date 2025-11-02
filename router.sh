@@ -67,6 +67,14 @@ SPINNER_WEATHER=(
     "🗺️ Đang phân tích bản đồ thời tiết"
 )
 
+SPINNER_FILESYSTEM=(
+    "📁 Đang lục tung ổ cứng tìm file"
+    "💾 Đang thao tác với hệ thống file"
+    "🔧 Đang chuẩn bị công cụ xử lý file"
+    "📝 Đang kiểm tra quyền truy cập file"
+    "⚙️ Đang thực thi thao tác file"
+)
+
 get_random_message_for_intent() {
     local intent="$1"
     local messages=()
@@ -86,6 +94,9 @@ get_random_message_for_intent() {
             ;;
         weather)
             messages=("${SPINNER_WEATHER[@]}")
+            ;;
+        filesystem)
+            messages=("${SPINNER_FILESYSTEM[@]}")
             ;;
         *)
             messages=("${SPINNER_CHAT[@]}")  # Default to chat
@@ -190,6 +201,15 @@ execute_tool() {
                 "$TOOLS_DIR/calendar/function_call.py" "$message"
             else
                 "$TOOLS_DIR/calendar/function_call.sh" "$message"
+            fi
+            ;;
+        filesystem)
+            # Gọi filesystem agent với Python function calling
+            if [ -f "$TOOLS_DIR/filesystem/function_call.py" ]; then
+                "$TOOLS_DIR/filesystem/function_call.py" "$message"
+            else
+                echo "❌ Filesystem agent chưa được cài đặt"
+                return 1
             fi
             ;;
         *)

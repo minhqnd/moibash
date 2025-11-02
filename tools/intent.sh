@@ -19,27 +19,37 @@ if [ -z "$USER_MESSAGE" ]; then
 fi
 
 # System instruction để phân loại intent
-SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 5 loại:
+SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 6 loại:
 
-1. calendar: BẤT KỲ YÊU CẦU NÀO về lịch, lịch trình, sự kiện, cuộc họp, hẹn gặp
+1. filesystem: BẤT KỲ YÊU CẦU NÀO về thao tác với file/folder trên hệ thống
+   - Tạo file: 'tạo file', 'create file', 'viết file'
+   - Đọc file: 'đọc file', 'xem file', 'hiển thị nội dung'
+   - Sửa file: 'sửa file', 'đổi tên file', 'rename', 'chỉnh sửa'
+   - Xóa file: 'xóa file', 'delete file', 'remove'
+   - Chạy code: 'chạy file', 'thực thi', 'run code', 'execute'
+   - Liệt kê: 'list file', 'bao nhiêu file', 'đếm file', 'tìm file'
+
+2. calendar: BẤT KỲ YÊU CẦU NÀO về lịch, lịch trình, sự kiện, cuộc họp, hẹn gặp
    - Xem lịch: 'lịch trình hôm nay', 'lịch tuần này', 'có hẹn gì không'
    - Thêm lịch: 'thêm lịch họp', 'tạo event', 'đặt hẹn'
    - Sửa/xóa lịch: 'xóa lịch họp', 'hủy cuộc hẹn', 'dời lịch'
 
-2. weather: Hỏi về thời tiết, nhiệt độ, mưa nắng tại một địa điểm cụ thể
+3. weather: Hỏi về thời tiết, nhiệt độ, mưa nắng tại một địa điểm cụ thể
    - 'thời tiết', 'nhiệt độ', 'trời có mưa không'
 
-3. image_create: Yêu cầu tạo ảnh, vẽ ảnh, generate image
+4. image_create: Yêu cầu tạo ảnh, vẽ ảnh, generate image
    - 'vẽ', 'tạo ảnh', 'generate image'
 
-4. google_search: Cần thông tin thời gian thực, tin tức, sự kiện mới nhất
+5. google_search: Cần thông tin thời gian thực, tin tức, sự kiện mới nhất
    - 'tin tức', 'tìm kiếm', 'thông tin về'
 
-5. chat: Các câu hỏi thông thường khác, trò chuyện, hỏi đáp kiến thức chung
+6. chat: Các câu hỏi thông thường khác, trò chuyện, hỏi đáp kiến thức chung
 
-QUAN TRỌNG: Ưu tiên calendar nếu có từ khóa: lịch, lịch trình, event, họp, hẹn, cuộc họp, appointment, meeting, schedule
+QUAN TRỌNG: 
+- Ưu tiên filesystem nếu có từ khóa: file, folder, tạo, xóa, sửa, đổi tên, chạy, execute, list, đếm, tìm kiếm file
+- Ưu tiên calendar nếu có từ khóa: lịch, lịch trình, event, họp, hẹn, cuộc họp, appointment, meeting, schedule
 
-CHỈ TRẢ VỀ MỘT TRONG NĂM TỪ SAU: calendar, weather, image_create, google_search, chat
+CHỈ TRẢ VỀ MỘT TRONG SÁU TỪ SAU: filesystem, calendar, weather, image_create, google_search, chat
 KHÔNG GIẢI THÍCH GÌ CẢ, CHỈ TRẢ VỀ ĐÚNG MỘT TỪ KHÓA"
 
 # Escape message
@@ -74,8 +84,11 @@ try:
         # Fallback: Phân loại dựa trên từ khóa trong message
         message = '''$USER_MESSAGE'''.lower()
         
-        # Calendar keywords - kiểm tra trước
-        if any(word in message for word in ['lịch', 'lich', 'schedule', 'event', 'họp', 'hop', 'hẹn', 'hen', 'meeting', 'appointment', 'cuộc họp', 'lịch trình']):
+        # Filesystem keywords - kiểm tra trước
+        if any(word in message for word in ['file', 'folder', 'tạo file', 'tao file', 'create file', 'xóa file', 'xoa file', 'delete file', 'đọc file', 'doc file', 'read file', 'sửa file', 'sua file', 'edit file', 'đổi tên', 'doi ten', 'rename', 'chạy', 'chay', 'run', 'execute', 'thực thi', 'thuc thi', 'bao nhiêu file', 'bao nhieu file', 'đếm file', 'dem file', 'list file', 'tìm file', 'tim file', 'search file']):
+            print('filesystem')
+        # Calendar keywords
+        elif any(word in message for word in ['lịch', 'lich', 'schedule', 'event', 'họp', 'hop', 'hẹn', 'hen', 'meeting', 'appointment', 'cuộc họp', 'lịch trình']):
             print('calendar')
         # Weather keywords
         elif any(word in message for word in ['thời tiết', 'thoi tiet', 'weather', 'nhiệt độ', 'nhiet do', 'temperature', 'mưa', 'mua', 'rain', 'nắng', 'nang', 'sunny']):
@@ -92,7 +105,9 @@ try:
         # Parse response từ API
         text = data['candidates'][0]['content']['parts'][0]['text'].strip().lower()
         # Lấy intent từ text
-        if 'calendar' in text:
+        if 'filesystem' in text:
+            print('filesystem')
+        elif 'calendar' in text:
             print('calendar')
         elif 'weather' in text:
             print('weather')
@@ -106,7 +121,9 @@ except Exception as e:
     # Fallback nếu có lỗi parse
     message = '''$USER_MESSAGE'''.lower()
     
-    if any(word in message for word in ['lịch', 'lich', 'schedule', 'event', 'họp', 'hop', 'hẹn', 'hen', 'meeting', 'appointment', 'cuộc họp', 'lịch trình']):
+    if any(word in message for word in ['file', 'folder', 'tạo file', 'tao file', 'create file', 'xóa file', 'xoa file', 'delete file', 'đọc file', 'doc file', 'read file', 'sửa file', 'sua file', 'edit file', 'đổi tên', 'doi ten', 'rename', 'chạy', 'chay', 'run', 'execute', 'thực thi', 'thuc thi', 'bao nhiêu file', 'bao nhieu file', 'đếm file', 'dem file', 'list file', 'tìm file', 'tim file', 'search file']):
+        print('filesystem')
+    elif any(word in message for word in ['lịch', 'lich', 'schedule', 'event', 'họp', 'hop', 'hẹn', 'hen', 'meeting', 'appointment', 'cuộc họp', 'lịch trình']):
         print('calendar')
     elif any(word in message for word in ['thời tiết', 'thoi tiet', 'weather', 'nhiệt độ', 'nhiet do', 'temperature', 'mưa', 'mua', 'rain', 'nắng', 'nang', 'sunny']):
         print('weather')
@@ -125,7 +142,9 @@ else
     if [ -z "$intent" ] || [[ "$response" == *"error"* ]]; then
         message_lower=$(echo "$USER_MESSAGE" | tr '[:upper:]' '[:lower:]')
         
-        if [[ "$message_lower" =~ (lịch|lich|schedule|event|họp|hop|hẹn|hen|meeting|appointment|lịch\ trình) ]]; then
+        if [[ "$message_lower" =~ (file|folder|tạo\ file|tao\ file|xóa\ file|xoa\ file|đọc\ file|doc\ file|sửa\ file|sua\ file|đổi\ tên|doi\ ten|rename|chạy|chay|run|execute|bao\ nhiêu\ file|đếm\ file|list\ file|tìm\ file) ]]; then
+            intent="filesystem"
+        elif [[ "$message_lower" =~ (lịch|lich|schedule|event|họp|hop|hẹn|hen|meeting|appointment|lịch\ trình) ]]; then
             intent="calendar"
         elif [[ "$message_lower" =~ (thời\ tiết|thoi\ tiet|weather|nhiệt\ độ|nhiet\ do|mưa|mua|rain|nắng|nang) ]]; then
             intent="weather"
@@ -138,7 +157,9 @@ else
         fi
     else
         # Parse intent từ API response
-        if [[ "$intent" == *"calendar"* ]]; then
+        if [[ "$intent" == *"filesystem"* ]]; then
+            intent="filesystem"
+        elif [[ "$intent" == *"calendar"* ]]; then
             intent="calendar"
         elif [[ "$intent" == *"weather"* ]]; then
             intent="weather"
@@ -154,7 +175,7 @@ fi
 
 # Đảm bảo intent hợp lệ
 case "$intent" in
-    image_create|google_search|weather|calendar|chat)
+    filesystem|image_create|google_search|weather|calendar|chat)
         echo "$intent"
         ;;
     *)
