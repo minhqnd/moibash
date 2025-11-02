@@ -180,7 +180,7 @@ FUNCTION_DECLARATIONS='[
     },
     {
         "name": "get_current_time",
-        "description": "Lấy thời gian hiện tại để tính toán timeMin/timeMax. Sử dụng khi cần xác định 'hôm nay', 'ngày mai', etc.",
+        "description": "Lấy thời gian hiện tại để tính toán timeMin/timeMax. Sử dụng khi cần xác định hôm nay, ngày mai, etc.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -331,7 +331,7 @@ max_iterations=10
 while [ $tool_calls_made -lt $max_iterations ]; do
     # Gọi Gemini API
     response=$(curl -s -X POST \
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$GEMINI_API_KEY" \
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
         -H 'Content-Type: application/json' \
         -d "{
           \"contents\": $conversation,
@@ -388,37 +388,71 @@ except Exception as e:
             
             # Add function call và response vào conversation
             if command -v python3 &> /dev/null; then
-                conversation=$(echo "$conversation" | python3 -c "
+                # Create temp files to safely pass data
+                temp_dir=$(mktemp -d 2>/dev/null || mktemp -d -t 'calendar_tmp')
+                echo "$conversation" > "$temp_dir/conversation.json"
+                echo "$result_value" > "$temp_dir/func_name.txt"
+                echo "$result_extra" > "$temp_dir/func_args.json"
+                echo "$func_result" > "$temp_dir/func_result.json"
+                
+                # Create Python script
+                cat > "$temp_dir/process.py" <<'PYEOF'
 import sys, json
 
-conversation = json.load(sys.stdin)
+# Read data from files
+with open(sys.argv[1], 'r') as f:
+    conversation = json.load(f)
+with open(sys.argv[2], 'r') as f:
+    func_name = f.read().strip()
+with open(sys.argv[3], 'r') as f:
+    func_args_str = f.read().strip()
+with open(sys.argv[4], 'r') as f:
+    func_result_str = f.read().strip()
+
+# Parse function arguments
+try:
+    func_args = json.loads(func_args_str)
+except Exception as e:
+    func_args = {}
 
 # Add model response with function call
 conversation.append({
     'role': 'model',
     'parts': [{
         'functionCall': {
-            'name': '$result_value',
-            'args': $result_extra
+            'name': func_name,
+            'args': func_args
         }
     }]
 })
+
+# Parse function result
+try:
+    func_result_json = json.loads(func_result_str)
+except:
+    func_result_json = {'result': func_result_str}
 
 # Add function response
 conversation.append({
     'role': 'function',
     'parts': [{
         'functionResponse': {
-            'name': '$result_value',
+            'name': func_name,
             'response': {
-                'content': $func_result
+                'content': func_result_json
             }
         }
     }]
 })
 
 print(json.dumps(conversation))
-" 2>/dev/null)
+PYEOF
+                
+                # Run Python script
+                conversation=$(python3 "$temp_dir/process.py" "$temp_dir/conversation.json" "$temp_dir/func_name.txt" "$temp_dir/func_args.json" "$temp_dir/func_result.json")
+                
+                # Cleanup
+                rm -rf "$temp_dir"
             fi
             
             # Continue loop để Gemini xử lý function response

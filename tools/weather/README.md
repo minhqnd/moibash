@@ -124,7 +124,7 @@ không có mưa. Thời tiết phù hợp để đi dạo hoặc hoạt động 
 ## 🔧 API được sử dụng
 
 ### 1. Gemini Function Calling API
-- **Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent`
+- **Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
 - **Mục đích:** Extract location từ câu hỏi tự nhiên
 - **Function:** `get_current_weather(location: string)`
 
@@ -162,7 +162,7 @@ curl -s "https://api.open-meteo.com/v1/forecast?latitude=21.0285&longitude=105.8
 ```bash
 source .env
 curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$GEMINI_API_KEY" \
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{
     "contents": [{"role": "user", "parts": [{"text": "Thời tiết ở Tokyo?"}]}],

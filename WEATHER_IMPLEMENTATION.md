@@ -70,7 +70,7 @@ Location → Geocoding API → (lat, lon) → Weather API → JSON Response
 
 ### 1. Gemini Function Calling API ✅
 ```bash
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent
+POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
 ```
 - Cần: `GEMINI_API_KEY` trong `.env`
 - Mục đích: Extract location từ user message

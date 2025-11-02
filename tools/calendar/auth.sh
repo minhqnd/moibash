@@ -282,14 +282,29 @@ case "${1:-help}" in
         echo ""
         echo "$auth_url"
         echo ""
-        echo "📋 Sau khi đăng nhập, bạn sẽ nhận được authorization code."
-        echo "📝 Nhập authorization code vào đây:"
-        read -p "Authorization code: " auth_code
+        echo "📋 Sau khi đăng nhập và authorize:"
+        echo "   1. Bạn sẽ được redirect đến http://localhost:3000/?code=..."
+        echo "   2. Trang web sẽ báo lỗi 'This site can't be reached' (bình thường)"
+        echo "   3. Copy toàn bộ URL từ address bar"
+        echo "   4. Paste vào đây, script sẽ tự động lấy code"
+        echo ""
+        echo "📝 Paste URL hoặc authorization code vào đây:"
+        read -p "URL/Code: " input
         
-        if [ ! -z "$auth_code" ]; then
+        if [ ! -z "$input" ]; then
+            # Kiểm tra xem input có phải là URL không
+            if [[ "$input" == *"code="* ]]; then
+                # Extract code from URL
+                auth_code=$(echo "$input" | grep -o 'code=[^&]*' | sed 's/code=//')
+                echo "✅ Đã extract code từ URL: ${auth_code:0:20}..."
+            else
+                # Input là code trực tiếp
+                auth_code="$input"
+            fi
+            
             exchange_code_for_tokens "$auth_code"
         else
-            echo "❌ Authorization code không được để trống"
+            echo "❌ URL/Code không được để trống"
             exit 1
         fi
         ;;

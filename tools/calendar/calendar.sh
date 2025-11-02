@@ -54,11 +54,15 @@ list_events() {
     url="${url}?orderBy=startTime&singleEvents=true&maxResults=${max_results}"
     
     if [ ! -z "$time_min" ]; then
-        url="${url}&timeMin=${time_min}"
+        # URL encode the time_min (replace + with %2B, : with %3A)
+        local encoded_time_min=$(echo "$time_min" | sed 's/+/%2B/g; s/:/%3A/g')
+        url="${url}&timeMin=${encoded_time_min}"
     fi
     
     if [ ! -z "$time_max" ]; then
-        url="${url}&timeMax=${time_max}"
+        # URL encode the time_max (replace + with %2B, : with %3A)
+        local encoded_time_max=$(echo "$time_max" | sed 's/+/%2B/g; s/:/%3A/g')
+        url="${url}&timeMax=${encoded_time_max}"
     fi
     
     # Gọi API

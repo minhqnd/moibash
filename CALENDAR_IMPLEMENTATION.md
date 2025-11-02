@@ -212,7 +212,7 @@ https://www.googleapis.com/auth/calendar
 ### 3. Gemini Function Calling API ✅
 
 ```bash
-POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent
+POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
 ```
 
 **Function Declarations:**
