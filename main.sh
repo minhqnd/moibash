@@ -30,13 +30,15 @@ clear_screen() {
 # Hàm hiển thị banner
 show_banner() {
     echo -e "${CYAN}${BOLD}"
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║                                                           ║"
-    echo "║          🤖  CHAT AGENT - HỆ ĐIỀU HÀNH  🤖                ║"
-    echo "║                                                           ║"
-    echo "║            Bash Script Chat Interface v1.0                ║"
-    echo "║                                                           ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
+    echo -e "             _ ______             _     "
+    echo -e "            (_|____  \           | |    "
+    echo -e " ____   ___  _ ____)  ) ____  ___| | _  "
+    echo -e "|    \ / _ \| |  __  ( / _  |/___) || \ "
+    echo -e "| | | | |_| | | |__)  | ( | |___ | | | |"
+    echo -e "|_|_|_|\___/|_|______/ \_||_(___/|_| |_|"
+    echo -e "                                        "
+    echo -e "Bash Script Chat Interface v1.0 "
+    echo -e ""
     echo -e "${RESET}"
     echo -e "${GRAY}Gõ /help để xem danh sách lệnh${RESET}"
     echo ""
@@ -47,8 +49,7 @@ show_help() {
     echo -e "\n${YELLOW}${BOLD}📚 DANH SÁCH LỆNH:${RESET}"
     echo -e "${CYAN}  /help${RESET}   - Hiển thị danh sách lệnh"
     echo -e "${CYAN}  /clear${RESET}  - Xóa màn hình và lịch sử chat"
-    echo -e "${CYAN}  /exit${RESET}   - Thoát chương trình"
-    echo -e "${CYAN}  /quit${RESET}   - Thoát chương trình"
+    echo -e "${CYAN}  /exit, /quit${RESET}   - Thoát chương trình"
     echo ""
 }
 

@@ -22,9 +22,32 @@ TOOLS_DIR="$SCRIPT_DIR/tools"
 SPINNER_PID=""
 SPINNER_ACTIVE=0
 
+# Danh sách câu chờ hài hước (có thể tuỳ biến)
+SPINNER_MESSAGES=(
+    "Đang khởi động agent thông minh nhất thế giới"
+    "Đang truy cập thông tin từ thời Tam Quốc"
+    "Đang kết nối với trạm ISS lấy kết quả"
+    "Đang hỏi ý kiến hội đồng cố vấn AI"
+    "Đang lục tung kho dữ liệu tối mật"
+    "Đang gọi điện cho người trong tương lai"
+    "Đang phân tích câu hỏi bằng lượng tử"
+    "Đang đánh thức mô hình sau giấc ngủ đông"
+    "Đang vi vu trên đám mây tìm đáp án"
+)
+
+random_spinner_message() {
+    local n=${#SPINNER_MESSAGES[@]}
+    if [ "$n" -eq 0 ]; then
+        echo "Đang xử lý yêu cầu"
+        return
+    fi
+    local idx=$(( RANDOM % n ))
+    echo "${SPINNER_MESSAGES[$idx]}"
+}
+
 start_spinner() {
     local msg
-    msg=${1:-"Đang xử lý yêu cầu"}
+    msg=${1:-"$(random_spinner_message)"}
     # Chỉ hiển thị nếu đầu ra là terminal
     if [ -t 2 ]; then
         SPINNER_ACTIVE=1
@@ -122,7 +145,7 @@ if ! check_api_key; then
 fi
 
 # Phân loại intent
-start_spinner "Đang xử lý yêu cầu"
+start_spinner
 intent=$(classify_intent "$USER_MESSAGE")
 
 # Debug: Hiển thị intent (có thể tắt sau)
