@@ -10,6 +10,11 @@
 # Chat history
 chat_history*.txt
 
+# Generated images
+images/
+*.png
+*.jpg
+
 # macOS
 .DS_Store
 
