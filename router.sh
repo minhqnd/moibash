@@ -128,7 +128,12 @@ execute_tool() {
             "$TOOLS_DIR/weather/function_call.sh" "$message"
             ;;
         calendar)
-            "$TOOLS_DIR/calendar/function_call.sh" "$message"
+            # Ưu tiên dùng Python version nếu có
+            if [ -f "$TOOLS_DIR/calendar/function_call.py" ]; then
+                "$TOOLS_DIR/calendar/function_call.py" "$message"
+            else
+                "$TOOLS_DIR/calendar/function_call.sh" "$message"
+            fi
             ;;
         *)
             echo "❌ Intent không hợp lệ: $intent"

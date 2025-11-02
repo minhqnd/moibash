@@ -74,7 +74,28 @@ User: 'xoá các lịch họp sáng nay và thêm lịch đi chơi golf'
 → Step 2: delete_event cho các event 'họp'
 → Step 3: add_event('Đi chơi golf', thời gian sáng)
 
-HÃY GỌI FUNCTION THEO THỨ TỰ HỢP LÝ!"
+HÃY GỌI FUNCTION THEO THỨ TỰ HỢP LÝ!
+
+QUAN TRỌNG - KHI TRẢ LỜI USER:
+- LUÔN HIỂN thị TOÀN BỘ thông tin chi tiết của từng event
+- Với mỗi event, hiển thị: Tiêu đề, Thời gian, Địa điểm (nếu có), Mô tả (nếu có)
+- Định dạng dễ đọc và rõ ràng
+- KHÔNG được chỉ nói 'có X lịch' mà phải liệt kê chi tiết tất cả
+
+VÍ DỤ OUTPUT TỐT:
+User: 'lịch trình ngày mai'
+→ Response: 'Lịch trình ngày mai của bạn:
+
+1. 📅 Họp team
+   ⏰ 09:00 - 10:00
+   📍 Phòng họp A
+   📝 Review dự án tuần
+
+2. 📅 Lunch với khách hàng  
+   ⏰ 12:00 - 13:30
+   📍 Nhà hàng ABC
+   
+Tổng cộng: 2 sự kiện'"
 
 # Function declarations
 FUNCTION_DECLARATIONS='[
@@ -331,7 +352,7 @@ max_iterations=10
 while [ $tool_calls_made -lt $max_iterations ]; do
     # Gọi Gemini API
     response=$(curl -s -X POST \
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$GEMINI_API_KEY" \
         -H 'Content-Type: application/json' \
         -d "{
           \"contents\": $conversation,
@@ -385,6 +406,10 @@ except Exception as e:
             
             # Execute function
             func_result=$(handle_function_call "$result_value" "$result_extra")
+            
+            # DEBUG: Show function result
+            # echo "[DEBUG] Function: $result_value" >&2
+            # echo "[DEBUG] Result: $func_result" >&2
             
             # Add function call và response vào conversation
             if command -v python3 &> /dev/null; then
