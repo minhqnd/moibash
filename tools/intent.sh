@@ -19,12 +19,13 @@ if [ -z "$USER_MESSAGE" ]; then
 fi
 
 # System instruction để phân loại intent
-SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 3 loại:
+SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 4 loại:
 - chat: Câu hỏi thông thường, trò chuyện, hỏi đáp kiến thức chung
 - image_create: Yêu cầu tạo ảnh, vẽ ảnh, generate image
 - google_search: Cần thông tin thời gian thực, tin tức, sự kiện mới, thông tin cập nhật
+- weather: Hỏi về thời tiết, nhiệt độ, mưa nắng tại một địa điểm cụ thể
 
-CHỈ TRẢ VỀ MỘT TRONG BA TỪ: chat, image_create, google_search
+CHỈ TRẢ VỀ MỘT TRONG BỐN TỪ: chat, image_create, google_search, weather
 KHÔNG GIẢI THÍCH, CHỈ TRẢ VỀ TÊN INTENT"
 
 # Escape message
@@ -59,6 +60,8 @@ try:
         print('image_create')
     elif 'google_search' in text or 'search' in text:
         print('google_search')
+    elif 'weather' in text:
+        print('weather')
     else:
         print('chat')
 except:
@@ -72,6 +75,8 @@ else
         intent="image_create"
     elif [[ "$intent" == *"search"* ]]; then
         intent="google_search"
+    elif [[ "$intent" == *"weather"* ]]; then
+        intent="weather"
     else
         intent="chat"
     fi
@@ -79,7 +84,7 @@ fi
 
 # Đảm bảo intent hợp lệ
 case "$intent" in
-    image_create|google_search|chat)
+    image_create|google_search|weather|chat)
         echo "$intent"
         ;;
     *)

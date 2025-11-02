@@ -124,6 +124,9 @@ execute_tool() {
         google_search)
             "$TOOLS_DIR/google_search.sh" "$message"
             ;;
+        weather)
+            "$TOOLS_DIR/weather/function_call.sh" "$message"
+            ;;
         *)
             echo "❌ Intent không hợp lệ: $intent"
             return 1
