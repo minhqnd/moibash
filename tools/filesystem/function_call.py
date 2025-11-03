@@ -61,6 +61,7 @@ CÁC FUNCTION KHẢ DỤNG:
 - Sử dụng đường dẫn tuyệt đối hoặc tương đối
 - Đường dẫn tương đối sẽ được tính từ thư mục hiện tại
 - Ví dụ: "./test.py", "/tmp/test.txt", "folder/file.txt"
+- list_files: nếu có thể liệt kê chi tiết ra, gồm bao nhiêu file, có các file gì, đuôi exetention gì, v.v.
 
 VÍ DỤ XỬ LÝ:
 User: "tạo file hello.py với nội dung hello world và chạy nó"
@@ -81,6 +82,7 @@ User: "folder này có bao nhiêu file"
 
 QUAN TRỌNG:
 - Luôn xác nhận đường dẫn chính xác
+- Chấp nhận luôn yêu cầu của user, không cần xác nhận lại trừ khi thao tác nguy hiểm
 - Với bulk operations (đổi tên/xóa nhiều file), xử lý tuần tự
 - Báo lỗi rõ ràng nếu không thực hiện được
 - Hiển thị kết quả chi tiết cho user"""
