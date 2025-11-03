@@ -314,16 +314,16 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
         print("❌ Đã từ chối thao tác\n", file=sys.stderr)
         return False
 
-def call_filesystem_script(command: str, *args) -> Dict[str, Any]:
-    """Call filesystem.sh script and parse JSON response"""
-    filesystem_sh = SCRIPT_DIR / "filesystem.sh"
+def call_filesystem_script(script_name: str, *args) -> Dict[str, Any]:
+    """Call individual filesystem script and parse JSON response"""
+    script_path = SCRIPT_DIR / f"{script_name}.sh"
     
-    if not filesystem_sh.exists():
-        return {"error": "filesystem.sh not found"}
+    if not script_path.exists():
+        return {"error": f"{script_name}.sh not found"}
     
     try:
         # Filter out empty strings from args
-        cmd_args = [str(filesystem_sh), command] + [str(arg) for arg in args if arg]
+        cmd_args = [str(script_path)] + [str(arg) for arg in args if arg]
         debug_print(f"Calling: {' '.join(cmd_args)}")
         
         result = subprocess.run(
@@ -370,45 +370,45 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     # Thực thi function
     if func_name == "read_file":
         file_path = args.get("file_path", "")
-        result = call_filesystem_script("read", file_path)
+        result = call_filesystem_script("readfile", file_path)
         
     elif func_name == "create_file":
         file_path = args.get("file_path", "")
         content = args.get("content", "")
-        result = call_filesystem_script("create", file_path, content)
+        result = call_filesystem_script("createfile", file_path, content)
         
     elif func_name == "update_file":
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         mode = args.get("mode", "overwrite")
-        result = call_filesystem_script("update", file_path, content, mode)
+        result = call_filesystem_script("updatefile", file_path, content, mode)
         
     elif func_name == "delete_file":
         file_path = args.get("file_path", "")
-        result = call_filesystem_script("delete", file_path)
+        result = call_filesystem_script("deletefile", file_path)
         
     elif func_name == "rename_file":
         old_path = args.get("old_path", "")
         new_path = args.get("new_path", "")
-        result = call_filesystem_script("rename", old_path, new_path)
+        result = call_filesystem_script("renamefile", old_path, new_path)
         
     elif func_name == "execute_file":
         file_path = args.get("file_path", "")
         exec_args = args.get("args", "")
         working_dir = args.get("working_dir", "")
-        result = call_filesystem_script("execute", file_path, exec_args, working_dir)
+        result = call_filesystem_script("executefile", file_path, exec_args, working_dir)
         
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
         pattern = args.get("pattern", "*")
         recursive = args.get("recursive", "false")
-        result = call_filesystem_script("list", dir_path, pattern, recursive)
+        result = call_filesystem_script("listfiles", dir_path, pattern, recursive)
         
     elif func_name == "search_files":
         dir_path = args.get("dir_path", ".")
         name_pattern = args.get("name_pattern", "*")
         recursive = args.get("recursive", "true")
-        result = call_filesystem_script("search", dir_path, name_pattern, recursive)
+        result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
         
     else:
         result = {"error": f"Unknown function: {func_name}"}
@@ -481,81 +481,81 @@ def main():
         user_message = sys.argv[1]
         debug_print(f"User message: {user_message}")
     
-    # Check API key
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("❌ Lỗi: Chưa thiết lập GEMINI_API_KEY!", file=sys.stderr)
-        sys.exit(1)
-    
-    # Initialize conversation
-    conversation = [
-        {
-            "role": "user",
-            "parts": [{"text": user_message}]
-        }
-    ]
-    
-    # Multi-turn conversation loop
-    tool_calls_made = 0
-    
-    while tool_calls_made < MAX_ITERATIONS:
-        # Call Gemini API
-        response = call_gemini_api(conversation, api_key)
+        # Check API key
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            print("❌ Lỗi: Chưa thiết lập GEMINI_API_KEY!", file=sys.stderr)
+            sys.exit(1)
         
-        # Parse response
-        response_type, value, extra = parse_response(response)
-        debug_print(f"Response type: {response_type}")
+        # Initialize conversation
+        conversation = [
+            {
+                "role": "user",
+                "parts": [{"text": user_message}]
+            }
+        ]
         
-        if response_type == "FUNCTION_CALL":
-            tool_calls_made += 1
-            func_name = value
-            func_args = extra
+        # Multi-turn conversation loop
+        tool_calls_made = 0
+        
+        while tool_calls_made < MAX_ITERATIONS:
+            # Call Gemini API
+            response = call_gemini_api(conversation, api_key)
             
-            # Execute function (với confirmation nếu cần)
-            func_result = handle_function_call(func_name, func_args)
+            # Parse response
+            response_type, value, extra = parse_response(response)
+            debug_print(f"Response type: {response_type}")
             
-            # Add model response with function call to conversation
-            conversation.append({
-                "role": "model",
-                "parts": [{
-                    "functionCall": {
-                        "name": func_name,
-                        "args": func_args
-                    }
-                }]
-            })
-            
-            # Add function response to conversation
-            conversation.append({
-                "role": "function",
-                "parts": [{
-                    "functionResponse": {
-                        "name": func_name,
-                        "response": {
-                            "content": func_result
+            if response_type == "FUNCTION_CALL":
+                tool_calls_made += 1
+                func_name = value
+                func_args = extra
+                
+                # Execute function (với confirmation nếu cần)
+                func_result = handle_function_call(func_name, func_args)
+                
+                # Add model response with function call to conversation
+                conversation.append({
+                    "role": "model",
+                    "parts": [{
+                        "functionCall": {
+                            "name": func_name,
+                            "args": func_args
                         }
-                    }
-                }]
-            })
-            
-            # Continue loop for Gemini to process function response
-            continue
-            
-        elif response_type == "TEXT":
-            # Final response from Gemini
-            print(value)
-            sys.exit(0)
-            
-        elif response_type == "NO_RESPONSE":
-            print("❌ Không nhận được phản hồi từ AI", file=sys.stderr)
+                    }]
+                })
+                
+                # Add function response to conversation
+                conversation.append({
+                    "role": "function",
+                    "parts": [{
+                        "functionResponse": {
+                            "name": func_name,
+                            "response": {
+                                "content": func_result
+                            }
+                        }
+                    }]
+                })
+                
+                # Continue loop for Gemini to process function response
+                continue
+                
+            elif response_type == "TEXT":
+                # Final response from Gemini
+                print(value)
+                sys.exit(0)
+                
+            elif response_type == "NO_RESPONSE":
+                print("❌ Không nhận được phản hồi từ AI", file=sys.stderr)
+                sys.exit(1)
+                
+            elif response_type == "ERROR":
+                print(f"❌ Lỗi: {value}", file=sys.stderr)
+                sys.exit(1)
+        
+            print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
             sys.exit(1)
-            
-        elif response_type == "ERROR":
-            print(f"❌ Lỗi: {value}", file=sys.stderr)
-            sys.exit(1)
-    
-        print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
-        sys.exit(1)
     
     except KeyboardInterrupt:
         print("\n\n❌ Đã hủy bởi user (Ctrl+C)", file=sys.stderr)
