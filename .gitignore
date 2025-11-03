@@ -23,3 +23,10 @@ images/
 # Backup files
 *.backup
 *~
+
+# Test files
+test_*.py
+test_*.txt
+test_*.sh
+*.exe
+*.run
