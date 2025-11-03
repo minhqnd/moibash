@@ -56,6 +56,7 @@ CÁC FUNCTION KHẢ DỤNG:
 - execute_file: Chạy file script (Python, Bash, Node.js)
 - list_files: Liệt kê files trong thư mục
 - search_files: Tìm kiếm files theo pattern
+- run_command: Thực thi lệnh hệ thống bất kỳ (ls, cat, cp, find, top, kill, v.v.)
 
 ĐƯỜNG DẪN:
 - Sử dụng đường dẫn tuyệt đối hoặc tương đối
@@ -80,12 +81,29 @@ User: "folder này có bao nhiêu file"
 → Step 1: list_files(".", recursive=false)
 → Trả về: số lượng files và folders
 
+User: "tìm 5 tiến trình tốn ram nhất và kill cái đầu tiên"
+→ Step 1: run_command("ps aux --sort=-%mem | head -6")
+→ Step 2: Phân tích output để lấy PID của tiến trình đầu tiên
+→ Step 3: run_command("kill -9 <PID>")
+
+User: "liệt kê các file .txt trong thư mục này"
+→ Step 1: run_command("ls -la *.txt")
+
+User: "copy file test.txt sang backup.txt"
+→ Step 1: run_command("cp test.txt backup.txt")
+
+User: "tìm tất cả file .log và xóa chúng"
+→ Step 1: run_command("find . -name '*.log' -delete")
+
 QUAN TRỌNG:
 - Luôn xác nhận đường dẫn chính xác
 - Chấp nhận luôn yêu cầu của user, không cần xác nhận lại trừ khi thao tác nguy hiểm
 - Với bulk operations (đổi tên/xóa nhiều file), xử lý tuần tự
 - Báo lỗi rõ ràng nếu không thực hiện được
-- Hiển thị kết quả chi tiết cho user"""
+- Hiển thị kết quả chi tiết cho user
+- run_command có thể thực thi BẤT KỲ lệnh shell nào: ls, cat, cp, find, top, kill, ps, grep, v.v.
+- Có thể kết hợp nhiều lệnh với pipe: ps aux | sort -nrk 4 | head -5
+- Với yêu cầu phức tạp, dùng run_command để thực thi trực tiếp thay vì nhiều bước"""
 
 # Function declarations
 FUNCTION_DECLARATIONS = [
@@ -242,6 +260,24 @@ FUNCTION_DECLARATIONS = [
             },
             "required": ["name_pattern"]
         }
+    },
+    {
+        "name": "run_command",
+        "description": "Thực thi lệnh hệ thống bất kỳ (ls, cat, cp, find, top, kill, v.v.). CẦN XÁC NHẬN từ user cho các lệnh nguy hiểm.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "Lệnh shell cần thực thi (ví dụ: 'ls -la', 'ps aux | head -10', 'kill -9 1234')"
+                },
+                "working_dir": {
+                    "type": "string",
+                    "description": "Working directory để chạy lệnh (optional, mặc định là thư mục hiện tại)"
+                }
+            },
+            "required": ["command"]
+        }
     }
 ]
 
@@ -285,6 +321,10 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
         print(f"▶️  Chạy file: {details.get('file_path', 'N/A')}", file=sys.stderr)
         if details.get('args'):
             print(f"   Arguments: {details.get('args')}", file=sys.stderr)
+    elif action == "run_command":
+        print(f"⚡ Chạy lệnh: {details.get('command', 'N/A')}", file=sys.stderr)
+        if details.get('working_dir'):
+            print(f"   Working dir: {details.get('working_dir')}", file=sys.stderr)
     
     print("\nTùy chọn:", file=sys.stderr)
     print("  y/yes/đồng ý  - Đồng ý thực hiện", file=sys.stderr)
@@ -359,7 +399,7 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     debug_print(f"Args: {json.dumps(args, ensure_ascii=False)}")
     
     # Các function cần confirmation
-    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "execute_file"]
+    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "execute_file", "run_command"]
     
     # Kiểm tra và yêu cầu confirmation nếu cần
     if func_name in needs_confirmation:
@@ -412,8 +452,10 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         recursive = args.get("recursive", "true")
         result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
         
-    else:
-        result = {"error": f"Unknown function: {func_name}"}
+    elif func_name == "run_command":
+        command = args.get("command", "")
+        working_dir = args.get("working_dir", "")
+        result = call_filesystem_script("processtool", command, working_dir)
     
     debug_print(f"Result: {json.dumps(result, ensure_ascii=False)[:500]}")
     return result
