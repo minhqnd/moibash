@@ -47,7 +47,7 @@ show_banner() {
     echo -e "| | | | |_| | | |__)  | ( | |___ | | | |"
     echo -e "|_|_|_|\___/|_|______/ \_||_(___/|_| |_|"
     echo -e "                                        "
-    echo -e "OSG Project hehe"
+    echo -e "OSG Project"
     echo -e ""
     echo -e "${RESET}"
     echo -e "${GRAY}Gõ /help để xem danh sách lệnh${RESET}"
