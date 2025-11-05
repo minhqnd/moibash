@@ -52,6 +52,8 @@ if [ -s "$IMAGE_FILE" ]; then
         open "$IMAGE_FILE"
     elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         xdg-open "$IMAGE_FILE" 2>/dev/null
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+        start "$IMAGE_FILE" 2>/dev/null || cmd.exe /c start "$IMAGE_FILE"
     fi
     
     exit 0
