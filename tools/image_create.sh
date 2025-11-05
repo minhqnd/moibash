@@ -50,6 +50,8 @@ if [ -s "$IMAGE_FILE" ]; then
     # Mở ảnh
     if [[ "$OSTYPE" == "darwin"* ]]; then
         open "$IMAGE_FILE"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "$IMAGE_FILE" 2>/dev/null
     fi
     
     exit 0
