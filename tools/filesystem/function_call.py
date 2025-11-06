@@ -330,7 +330,9 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
         "rename_file": "📝",
         "list_files": "📁",
         "search_files": "🔍",
-        "shell": "⚡"
+        "shell": "⚡",
+        "execute_file": "▶️",
+        "run_command": "⚡"
     }
     icon = icons.get(func_name, "🔧")
     
@@ -343,6 +345,10 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
             display = f"{icon}  Shell: Execute {args.get('file_path', 'N/A')}"
         else:
             display = f"{icon}  Shell"
+    elif func_name == "execute_file":
+        display = f"{icon}  ExecuteFile: {args.get('file_path', 'N/A')}"
+    elif func_name == "run_command":
+        display = f"{icon}  RunCommand: {args.get('command', 'N/A')}"
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
         recursive = args.get("recursive", "false")
@@ -485,7 +491,7 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     print_tool_call(func_name, args)
     
     # Các function cần confirmation
-    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "shell"]
+    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "shell", "execute_file", "run_command"]
     
     # Kiểm tra và yêu cầu confirmation nếu cần
     if func_name in needs_confirmation:
@@ -545,6 +551,23 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
             result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
         else:
             result = {"error": "Invalid action for shell. Use 'command' or 'file'."}
+    
+    # Backward compatibility for old function names
+    elif func_name == "execute_file":
+        # Map to shell with action="file"
+        file_path = args.get("file_path", "")
+        exec_args = args.get("args", "")
+        working_dir = args.get("working_dir", "")
+        result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
+    
+    elif func_name == "run_command":
+        # Map to shell with action="command"
+        command = args.get("command", "")
+        working_dir = args.get("working_dir", "")
+        result = call_filesystem_script("shell", "command", command, "", working_dir)
+    
+    else:
+        result = {"error": f"Unknown function: {func_name}"}
     
     debug_print(f"Result: {json.dumps(result, ensure_ascii=False)[:500]}")
     return result
