@@ -287,6 +287,20 @@ def debug_print(*args, **kwargs):
     if DEBUG:
         print("[DEBUG]", *args, file=sys.stderr, **kwargs)
 
+def sanitize_for_display(text: str, max_length: int = 100) -> str:
+    """
+    Sanitize text for display, preventing sensitive data exposure
+    Returns truncated text without exposing full content
+    """
+    if not text:
+        return "N/A"
+    
+    # Truncate long content
+    if len(text) > max_length:
+        return text[:max_length] + "..."
+    
+    return text
+
 def load_chat_history() -> List[Dict]:
     """Load chat history from file"""
     if not HISTORY_FILE.exists():
@@ -397,30 +411,39 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     print("⚠️  CẦN XÁC NHẬN THAO TÁC", file=sys.stderr)
     print("="*60, file=sys.stderr)
     
-    # Format thông tin dựa trên action
+    # Format thông tin dựa trên action (with sanitization)
     if action == "create_file":
-        print(f"📝 Tạo file: {details.get('file_path', 'N/A')}", file=sys.stderr)
-        content_preview = details.get('content', '')[:100]
-        print(f"   Nội dung: {content_preview}...", file=sys.stderr)
+        file_path = sanitize_for_display(details.get('file_path', ''), 80)
+        print(f"📝 Tạo file: {file_path}", file=sys.stderr)
+        content = sanitize_for_display(details.get('content', ''), 100)
+        print(f"   Nội dung: {content}...", file=sys.stderr)
     elif action == "update_file":
-        print(f"✏️  Cập nhật file: {details.get('file_path', 'N/A')}", file=sys.stderr)
+        file_path = sanitize_for_display(details.get('file_path', ''), 80)
+        print(f"✏️  Cập nhật file: {file_path}", file=sys.stderr)
         print(f"   Mode: {details.get('mode', 'overwrite')}", file=sys.stderr)
     elif action == "delete_file":
-        print(f"🗑️  Xóa: {details.get('file_path', 'N/A')}", file=sys.stderr)
+        file_path = sanitize_for_display(details.get('file_path', ''), 80)
+        print(f"🗑️  Xóa: {file_path}", file=sys.stderr)
     elif action == "rename_file":
         print(f"📝 Đổi tên:", file=sys.stderr)
-        print(f"   Từ: {details.get('old_path', 'N/A')}", file=sys.stderr)
-        print(f"   Sang: {details.get('new_path', 'N/A')}", file=sys.stderr)
+        old_path = sanitize_for_display(details.get('old_path', ''), 80)
+        new_path = sanitize_for_display(details.get('new_path', ''), 80)
+        print(f"   Từ: {old_path}", file=sys.stderr)
+        print(f"   Sang: {new_path}", file=sys.stderr)
     elif action == "shell":
         shell_action = details.get('action', '')
         if shell_action == "command":
-            print(f"⚡ Chạy lệnh: {details.get('command', 'N/A')}", file=sys.stderr)
+            command = sanitize_for_display(details.get('command', ''), 80)
+            print(f"⚡ Chạy lệnh: {command}", file=sys.stderr)
         elif shell_action == "file":
-            print(f"▶️  Chạy file: {details.get('file_path', 'N/A')}", file=sys.stderr)
+            file_path = sanitize_for_display(details.get('file_path', ''), 80)
+            print(f"▶️  Chạy file: {file_path}", file=sys.stderr)
             if details.get('args'):
-                print(f"   Arguments: {details.get('args')}", file=sys.stderr)
+                args = sanitize_for_display(details.get('args', ''), 50)
+                print(f"   Arguments: {args}", file=sys.stderr)
         if details.get('working_dir'):
-            print(f"   Working dir: {details.get('working_dir')}", file=sys.stderr)
+            working_dir = sanitize_for_display(details.get('working_dir', ''), 60)
+            print(f"   Working dir: {working_dir}", file=sys.stderr)
     
     print("\nTùy chọn:", file=sys.stderr)
     print("  y/yes/đồng ý  - Đồng ý thực hiện", file=sys.stderr)
