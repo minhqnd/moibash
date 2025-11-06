@@ -6,7 +6,7 @@ Agent thông minh để thao tác với file và folder trên hệ thống.
 
 - ✅ **Đọc file**: Xem nội dung file
 - ✅ **Tạo file**: Tạo file mới với nội dung
-- ✅ **Cập nhật file**: Sửa nội dung file (ghi đề hoặc append)
+- ✅ **Cập nhật file**: Sửa nội dung file (ghi đè hoặc append)
 - ✅ **Xóa file/folder**: Xóa file hoặc folder (recursive)
 - ✅ **Đổi tên**: Đổi tên file hoặc folder
 - ✅ **Chạy lệnh shell**: Thực thi bất kỳ lệnh shell nào (ls, cat, cp, find, kill, v.v.)

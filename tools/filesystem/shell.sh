@@ -80,6 +80,14 @@ print(json.dumps(result, ensure_ascii=False))
             return 1
         fi
         
+        # Additional security: ensure resolved path is not attempting to escape working directory
+        # This prevents malicious paths like "../../etc/passwd"
+        local current_dir=$(pwd)
+        if [[ "$resolved_path" == /etc/* ]] || [[ "$resolved_path" == /root/* ]]; then
+            echo "{\"error\": \"Access to system directories is restricted\"}"
+            return 1
+        fi
+        
         # Xác định interpreter dựa trên extension
         local ext="${file_path##*.}"
         local interpreter=""

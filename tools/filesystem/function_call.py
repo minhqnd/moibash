@@ -316,8 +316,11 @@ def save_chat_history(history: List[Dict]):
 
 def print_tool_call(func_name: str, args: Dict[str, Any]):
     """Print tool call information with border"""
-    border = "╭" + "─" * 94 + "╮"
-    bottom = "╰" + "─" * 94 + "╯"
+    # Dynamic border width
+    BORDER_WIDTH = 94
+    border = "╭" + "─" * BORDER_WIDTH + "╮"
+    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
+    CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
     
     print(border, file=sys.stderr)
     
@@ -373,7 +376,11 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     else:
         display = f"{icon}  {func_name}"
     
-    print(f"│ {display:<92} │", file=sys.stderr)
+    # Truncate if too long, otherwise pad to width
+    if len(display) > CONTENT_WIDTH:
+        display = display[:CONTENT_WIDTH-3] + "..."
+    
+    print(f"│ {display:<{CONTENT_WIDTH}} │", file=sys.stderr)
     print(bottom, file=sys.stderr)
 
 def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
