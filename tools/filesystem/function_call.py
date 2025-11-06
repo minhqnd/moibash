@@ -330,12 +330,21 @@ def save_chat_history(history: List[Dict]):
 
 def print_tool_call(func_name: str, args: Dict[str, Any]):
     """Print tool call information with border"""
-    # Dynamic border width
-    BORDER_WIDTH = 94
+    # Get terminal width, default to 94 if can't determine
+    try:
+        import shutil
+        terminal_width = shutil.get_terminal_size().columns
+        # Use min of terminal width and 120 for readability
+        BORDER_WIDTH = min(terminal_width - 2, 120)
+    except:
+        BORDER_WIDTH = 94
+    
     border = "╭" + "─" * BORDER_WIDTH + "╮"
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
     CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
     
+    # Clear any previous line (like spinner) before printing
+    print("\r\033[K", end='', file=sys.stderr)
     print(border, file=sys.stderr)
     
     # Function name with icon
