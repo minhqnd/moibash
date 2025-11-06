@@ -19,7 +19,7 @@ if [ -z "$USER_MESSAGE" ]; then
 fi
 
 # System instruction để phân loại intent
-SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 6 loại:
+SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 7 loại:
 
 1. filesystem: BẤT KỲ YÊU CẦU NÀO về thao tác với file/folder trên hệ thống
    - Tạo file: 'tạo file', 'create file', 'viết file'
@@ -40,16 +40,22 @@ SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi c
 4. image_create: Yêu cầu tạo ảnh, vẽ ảnh, generate image
    - 'vẽ', 'tạo ảnh', 'generate image'
 
-5. google_search: Cần thông tin thời gian thực, tin tức, sự kiện mới nhất
+5. music: BẤT KỲ YÊU CẦU NÀO liên quan đến âm nhạc, phát bài hát, nghe nhạc, hoặc tra cứu ca sĩ, album
+   - Phát nhạc: 'phát bài', 'nghe bài', 'nghe nhạc', 'play song'
+   - Tra cứu: 'ai hát bài', 'tác giả bài', 'album của', 'bài hát của ca sĩ'
+   - Dừng phát: 'stop', 'dừng nhạc', 'pause'
+
+6. google_search: Cần thông tin thời gian thực, tin tức, sự kiện mới nhất
    - 'tin tức', 'tìm kiếm', 'thông tin về'
 
-6. chat: Các câu hỏi thông thường khác, trò chuyện, hỏi đáp kiến thức chung
+7. chat: Các câu hỏi thông thường khác, trò chuyện, hỏi đáp kiến thức chung
 
 QUAN TRỌNG: 
 - Ưu tiên filesystem nếu có từ khóa: file, folder, tạo, xóa, sửa, đổi tên, chạy, execute, list, đếm, tìm kiếm file
 - Ưu tiên calendar nếu có từ khóa: lịch, lịch trình, event, họp, hẹn, cuộc họp, appointment, meeting, schedule
+- Ưu tiên music nếu có từ khóa: phát, nghe, nhạc, bài hát, itunes, album, ca sĩ, tác giả, stop, dừng
 
-CHỈ TRẢ VỀ MỘT TRONG SÁU TỪ SAU: filesystem, calendar, weather, image_create, google_search, chat
+CHỈ TRẢ VỀ MỘT TRONG BẢY TỪ SAU: filesystem, calendar, weather, image_create, music, google_search, chat
 KHÔNG GIẢI THÍCH GÌ CẢ, CHỈ TRẢ VỀ ĐÚNG MỘT TỪ KHÓA"
 
 # Escape message
@@ -96,6 +102,9 @@ try:
         # Image keywords
         elif any(word in message for word in ['vẽ', 've', 'draw', 'tạo ảnh', 'tao anh', 'create image', 'generate image', 'ảnh', 'anh', 'image']):
             print('image_create')
+        # Music keywords
+        elif any(word in message for word in ['phát', 'phat', 'nghe', 'nhạc', 'nhac', 'bài hát', 'bai hat', 'itunes', 'music', 'album', 'ca sĩ', 'ca si', 'tác giả', 'tac gia', 'stop', 'dừng', 'dung']):
+            print('music')
         # Search keywords
         elif any(word in message for word in ['tìm kiếm', 'tim kiem', 'search', 'tin tức', 'tin tuc', 'news', 'thông tin', 'thong tin', 'information']):
             print('google_search')
@@ -113,6 +122,8 @@ try:
             print('weather')
         elif 'image_create' in text or 'image' in text:
             print('image_create')
+        elif 'music' in text:
+            print('music')
         elif 'google_search' in text or 'search' in text:
             print('google_search')
         else:
@@ -129,6 +140,8 @@ except Exception as e:
         print('weather')
     elif any(word in message for word in ['vẽ', 've', 'draw', 'tạo ảnh', 'tao anh', 'create image', 'generate image', 'ảnh', 'anh', 'image']):
         print('image_create')
+    elif any(word in message for word in ['phát', 'phat', 'nghe', 'nhạc', 'nhac', 'bài hát', 'bai hat', 'itunes', 'music', 'album', 'ca sĩ', 'ca si', 'tác giả', 'tac gia', 'stop', 'dừng', 'dung']):
+        print('music')
     elif any(word in message for word in ['tìm kiếm', 'tim kiem', 'search', 'tin tức', 'tin tuc', 'news', 'thông tin', 'thong tin', 'information']):
         print('google_search')
     else:
@@ -148,6 +161,8 @@ else
             intent="calendar"
         elif [[ "$message_lower" =~ (thời\ tiết|thoi\ tiet|weather|nhiệt\ độ|nhiet\ do|mưa|mua|rain|nắng|nang) ]]; then
             intent="weather"
+        elif [[ "$message_lower" =~ (phát|phat|nghe|nhạc|nhac|bài[[:space:]]?hát|bai[[:space:]]?hat|itunes|music|album|ca[[:space:]]?sĩ|ca[[:space:]]?si|tác[[:space:]]?giả|tac[[:space:]]?gia|thông[[:space:]]?tin\ bài|thong[[:space:]]?tin\ bai|phát\ bài|play) ]]; then
+            intent="music"    
         elif [[ "$message_lower" =~ (vẽ|ve|draw|tạo\ ảnh|tao\ anh|image|ảnh|anh) ]]; then
             intent="image_create"
         elif [[ "$message_lower" =~ (tìm\ kiếm|tim\ kiem|search|tin\ tức|tin\ tuc|news) ]]; then
@@ -165,6 +180,8 @@ else
             intent="weather"
         elif [[ "$intent" == *"image"* ]]; then
             intent="image_create"
+        elif [[ "$intent" == *"music"* ]]; then
+            intent="music"    
         elif [[ "$intent" == *"search"* ]]; then
             intent="google_search"
         else
@@ -175,7 +192,7 @@ fi
 
 # Đảm bảo intent hợp lệ
 case "$intent" in
-    filesystem|image_create|google_search|weather|calendar|chat)
+    filesystem|image_create|google_search|weather|calendar|music|chat)
         echo "$intent"
         ;;
     *)
