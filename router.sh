@@ -122,9 +122,16 @@ start_spinner() {
         {
             local frames="|/-\\"
             local i=0
+            local elapsed=0
+            local count=0
             while [ "$SPINNER_ACTIVE" -eq 1 ]; do
                 i=$(( (i + 1) % 4 ))
-                printf "\r%s %s" "$msg" "${frames:$i:1}" >&2
+                count=$((count + 1))
+                if [ $count -eq 10 ]; then
+                    elapsed=$((elapsed + 1))
+                    count=0
+                fi
+                printf "\r%s (%ds) %s" "$msg" "$elapsed" "${frames:$i:1}" >&2
                 sleep 0.1
             done
         } &

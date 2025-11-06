@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import subprocess
+import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import requests
@@ -355,6 +356,24 @@ def get_terminal_width() -> int:
     except:
         return 94
 
+def display_width(text: str) -> int:
+    """Calculate display width of text including emojis (emojis count as 2)"""
+    import unicodedata
+    width = 0
+    for char in text:
+        if unicodedata.east_asian_width(char) in ('F', 'W'):
+            width += 2  # Full-width and wide characters
+        else:
+            width += 1
+    return width
+
+def pad_to_width(text: str, target_width: int) -> str:
+    """Pad text to target display width, accounting for emojis"""
+    current_width = display_width(text)
+    if current_width >= target_width:
+        return text
+    return text + ' ' * (target_width - current_width)
+
 def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
     """Print tool call information with border and optional result"""
     # Stop spinner if it's running (from router.sh)
@@ -371,7 +390,7 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
     BORDER_WIDTH = get_terminal_width()
     border = "╭" + "─" * BORDER_WIDTH + "╮"
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH - 2
+    CONTENT_WIDTH = BORDER_WIDTH
     
     # Print border
     print(border, file=sys.stderr, flush=True)
@@ -429,28 +448,162 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
         display = f"{icon}  {func_name}"
     
     # Truncate if too long, otherwise pad to width
-    if len(display) > CONTENT_WIDTH:
-        display = display[:CONTENT_WIDTH-3] + "..."
+    if display_width(display) > CONTENT_WIDTH - 4:
+        # Truncate carefully considering emoji width
+        truncated = ""
+        current_w = 0
+        for char in display:
+            char_width = 2 if unicodedata.east_asian_width(char) in ('F', 'W') else 1
+            if current_w + char_width > CONTENT_WIDTH - 7:
+                break
+            truncated += char
+            current_w += char_width
+        display = truncated + "..."
     
-    print(f"│ ✓  {display:<{CONTENT_WIDTH-3}} │", file=sys.stderr, flush=True)
+    line_content = f"│ ✓ {display} "
+    padding_needed = CONTENT_WIDTH - display_width(line_content)
+    print(f"{line_content}{' ' * padding_needed} │", file=sys.stderr, flush=True)
     
     # Print result if provided
     if result:
-        print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr, flush=True)
+        print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr, flush=True)
         
         # Format result based on function type
         if func_name == "search_files" or func_name == "list_files":
             if "files" in result:
                 files = result["files"]
                 count = len(files) if isinstance(files, list) else 0
-                print(f"│    Found {count} matching file(s){' ' * (CONTENT_WIDTH - 30)}│", file=sys.stderr, flush=True)
+                line = f"│    Found {count} matching file(s) "
+                padding = CONTENT_WIDTH - display_width(line)
+                print(f"{line}{' ' * padding} │", file=sys.stderr, flush=True)
         elif func_name == "read_file":
             if "content" in result:
                 content = result["content"]
                 lines = content.count('\n') + 1 if content else 0
-                print(f"│    Read {lines} line(s){' ' * (CONTENT_WIDTH - 21)}│", file=sys.stderr, flush=True)
+                line = f"│    Read {lines} line(s) "
+                padding = CONTENT_WIDTH - display_width(line)
+                print(f"{line}{' ' * padding} │", file=sys.stderr, flush=True)
     
     print(bottom, file=sys.stderr, flush=True)
+
+def print_tool_result(func_name: str, result: Dict[str, Any]):
+    """Print result box AFTER the tool was executed - for ALL functions."""
+    BORDER_WIDTH = get_terminal_width()
+    border = "╭" + "─" * BORDER_WIDTH + "╮"
+    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
+    CONTENT_WIDTH = BORDER_WIDTH
+
+    def line(text: str = ""):
+        pad = CONTENT_WIDTH - display_width(f"│ {text} ")
+        print(f"│ {text}{' ' * pad}  │", file=sys.stderr)
+
+    print(border, file=sys.stderr)
+    
+    # Icon cho từng loại function
+    summary_icon = {
+        "read_file": "📖",
+        "list_files": "📁",
+        "search_files": "🔍",
+        "create_file": "✅",
+        "update_file": "✅",
+        "delete_file": "✅",
+        "rename_file": "✅",
+        "shell": "✅",
+        "execute_file": "✅",
+        "run_command": "✅"
+    }.get(func_name, "🔧")
+    
+    line(f"{summary_icon}  Result")
+    line()
+
+    # Check for errors
+    if isinstance(result, dict) and "error" in result:
+        line(f"❌ Error: {result['error']}")
+    # Search/List files results
+    elif func_name in ("search_files", "list_files") and isinstance(result, dict):
+        files = result.get("files")
+        if isinstance(files, list):
+            line(f"Found {len(files)} matching file(s)")
+            # Show up to first 5 files (absolute paths)
+            preview = files[:5]
+            for fpath in preview:
+                # Handle both string paths and dict objects
+                if isinstance(fpath, dict):
+                    display = fpath.get('path', str(fpath))
+                else:
+                    display = str(fpath)
+                    
+                if display_width(display) > CONTENT_WIDTH - 4:
+                    truncated = ""
+                    current_w = 0
+                    for ch in display:
+                        ch_w = 2 if unicodedata.east_asian_width(ch) in ('F','W') else 1
+                        if current_w + ch_w > CONTENT_WIDTH - 7:
+                            break
+                        truncated += ch
+                        current_w += ch_w
+                    display = truncated + "..."
+                line(f"- {display}")
+            if len(files) > len(preview):
+                line(f"… (+{len(files)-len(preview)} more)")
+        else:
+            line(str(result))
+    # Read file result
+    elif func_name == "read_file" and isinstance(result, dict):
+        content = result.get("content", "")
+        if isinstance(content, str):
+            lines = content.splitlines()
+            line(f"Read {len(lines)} line(s)")
+            if lines:
+                first = lines[0]
+                if display_width(first) > CONTENT_WIDTH - 12:
+                    first = first[:CONTENT_WIDTH-15] + "..."
+                line(f"First: {first}")
+        else:
+            line("(No content)")
+    # Create/Update/Delete/Rename results
+    elif func_name in ("create_file", "update_file", "delete_file", "rename_file"):
+        if isinstance(result, dict):
+            if "success" in result:
+                status = "✓ Success" if result["success"] else "✗ Failed"
+                line(status)
+            if "message" in result:
+                line(result["message"])
+            if "path" in result:
+                line(f"Path: {result['path']}")
+        else:
+            line(str(result))
+    # Shell/Execute results
+    elif func_name in ("shell", "execute_file", "run_command"):
+        if isinstance(result, dict):
+            if "success" in result:
+                status = "✓ Success" if result["success"] else "✗ Failed"
+                line(status)
+            if "output" in result:
+                output = result["output"]
+                # Truncate long output
+                if len(output) > 200:
+                    output = output[:200] + "..."
+                # Show first few lines
+                output_lines = output.splitlines()[:5]
+                for out_line in output_lines:
+                    if display_width(out_line) > CONTENT_WIDTH - 4:
+                        out_line = out_line[:CONTENT_WIDTH-7] + "..."
+                    line(out_line)
+                if len(output.splitlines()) > 5:
+                    line("… (output truncated)")
+            if "exit_code" in result:
+                line(f"Exit code: {result['exit_code']}")
+        else:
+            line(str(result))
+    # Generic fallback
+    else:
+        raw = json.dumps(result, ensure_ascii=False) if isinstance(result, dict) else str(result)
+        if display_width(raw) > CONTENT_WIDTH - 1:
+            raw = raw[:CONTENT_WIDTH-4] + "..."
+        line(raw)
+
+    print(bottom, file=sys.stderr)
 
 def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = False) -> bool:
     """
@@ -468,58 +621,92 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     BORDER_WIDTH = get_terminal_width()
     border = "╭" + "─" * BORDER_WIDTH + "╮"
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH - 2
+    CONTENT_WIDTH = BORDER_WIDTH
     
     # Print confirmation box
     print(border, file=sys.stderr)
-    print(f"│ ?  Confirm Action{' ' * (CONTENT_WIDTH - 17)}│", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
+    line = "│ ? Confirm Action "
+    padding = CONTENT_WIDTH - display_width(line)
+    print(f"{line}{' ' * padding} │", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
     
     # Format thông tin dựa trên action (with sanitization)
     if action == "create_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        print(f"│   📝 Create: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
+        line = f"│  📝 Create: {safe_path} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
         content = sanitize_for_display(details.get('content', ''), 50)
-        print(f"│      Content: {content:<{CONTENT_WIDTH-17}}│", file=sys.stderr)
+        line = f"│     Content: {content} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
     elif action == "update_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
         mode = details.get('mode', 'overwrite')
-        print(f"│   ✏️  Update: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
-        print(f"│      Mode: {mode:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
+        line = f"│  ✏️  Update: {safe_path} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding}  │", file=sys.stderr)
+        line = f"│     Mode: {mode} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
     elif action == "delete_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        print(f"│   🗑️  Delete: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
+        line = f"│  🗑️  Delete: {safe_path} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding}  │", file=sys.stderr)
     elif action == "rename_file":
         old_path = sanitize_for_display(details.get('old_path', ''), 60)
         new_path = sanitize_for_display(details.get('new_path', ''), 60)
-        print(f"│   📝 Rename:", file=sys.stderr)
-        print(f"│      From: {old_path:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
-        print(f"│      To: {new_path:<{CONTENT_WIDTH-13}}│", file=sys.stderr)
+        line = "│  📝 Rename: "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        line = f"│     From: {old_path} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        line = f"│     To: {new_path} "
+        padding = CONTENT_WIDTH - display_width(line)
+        print(f"{line}{' ' * padding} │", file=sys.stderr)
     elif action == "shell":
         shell_action = details.get('action', '')
         if shell_action == "command":
             command = sanitize_for_display(details.get('command', ''), 60)
-            print(f"│   ⚡ Shell: {command:<{CONTENT_WIDTH-12}}│", file=sys.stderr)
+            line = f"│  ⚡ Shell: {command} "
+            padding = CONTENT_WIDTH - display_width(line)
+            print(f"{line}{' ' * padding} │", file=sys.stderr)
         elif shell_action == "file":
             file_path = sanitize_for_display(details.get('file_path', ''), 60)
-            print(f"│   ▶️  Execute: {file_path:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
+            line = f"│  ▶️  Execute: {file_path} "
+            padding = CONTENT_WIDTH - display_width(line)
+            print(f"{line}{' ' * padding} │", file=sys.stderr)
             if details.get('args'):
                 args = sanitize_for_display(details.get('args', ''), 50)
-                print(f"│      Args: {args:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
+                line = f"│     Args: {args} "
+                padding = CONTENT_WIDTH - display_width(line)
+                print(f"{line}{' ' * padding} │", file=sys.stderr)
         if details.get('working_dir'):
             working_dir = sanitize_for_display(details.get('working_dir', ''), 55)
-            print(f"│      Working dir: {working_dir:<{CONTENT_WIDTH-21}}│", file=sys.stderr)
+            line = f"│     Working dir: {working_dir} "
+            padding = CONTENT_WIDTH - display_width(line)
+            print(f"{line}{' ' * padding} │", file=sys.stderr)
     
-    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
-    print(f"│ Allow execution?{' ' * (CONTENT_WIDTH - 17)}│", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
-    print(f"│ ● 1. Yes, allow once{' ' * (CONTENT_WIDTH - 21)}│", file=sys.stderr)
-    print(f"│   2. Yes, allow always{' ' * (CONTENT_WIDTH - 23)}│", file=sys.stderr)
-    print(f"│   3. No, cancel (esc){' ' * (CONTENT_WIDTH - 23)}│", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
+    line = "│ Allow execution? "
+    padding = CONTENT_WIDTH - display_width(line)
+    print(f"{line}{' ' * padding} │", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
+    line = "│ ● 1. Yes, allow once "
+    padding = CONTENT_WIDTH - display_width(line)
+    print(f"{line}{' ' * padding} │", file=sys.stderr)
+    line = "│   2. Yes, allow always "
+    padding = CONTENT_WIDTH - display_width(line)
+    print(f"{line}{' ' * padding} │", file=sys.stderr)
+    line = "│   3. No, cancel (esc) "
+    padding = CONTENT_WIDTH - display_width(line)
+    print(f"{line}{' ' * padding} │", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
     print(bottom, file=sys.stderr)
     print("Choice: ", end='', file=sys.stderr, flush=True)
     
@@ -588,66 +775,67 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     debug_print(f"Function: {func_name}")
     debug_print(f"Args: {json.dumps(args, ensure_ascii=False)}")
     
-    # Các function KHÔNG cần confirmation - thực thi ngay và hiển thị kết quả
-    no_confirm_needed = ["read_file", "list_files", "search_files"]
+    # BẮT BUỘC: LUÔN HIỆN TOOL HEADER TRƯỚC KHI THỰC THI
+    # Điều này giúp kiểm soát và theo dõi mọi function call
+    print_tool_call(func_name, args)
     
     # Execute function
     result = None
     
+    # Các function KHÔNG cần confirmation - thực thi ngay và hiển thị kết quả
     if func_name == "read_file":
         file_path = args.get("file_path", "")
         result = call_filesystem_script("readfile", file_path)
-        print_tool_call(func_name, args, result)
+        print_tool_result(func_name, result)
         
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
         pattern = args.get("pattern", "*")
         recursive = args.get("recursive", "false")
         result = call_filesystem_script("listfiles", dir_path, pattern, recursive)
-        print_tool_call(func_name, args, result)
+        print_tool_result(func_name, result)
         
     elif func_name == "search_files":
         dir_path = args.get("dir_path", ".")
         name_pattern = args.get("name_pattern", "*")
         recursive = args.get("recursive", "true")
         result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
-        print_tool_call(func_name, args, result)
+        print_tool_result(func_name, result)
         
-    # Functions cần confirmation - hiển thị trước, confirm, rồi thực thi
+    # Functions cần confirmation - confirm sau đó thực thi và hiển thị result
     elif func_name == "create_file":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         result = call_filesystem_script("createfile", file_path, content)
+        print_tool_result(func_name, result)
         
     elif func_name == "update_file":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         mode = args.get("mode", "overwrite")
         result = call_filesystem_script("updatefile", file_path, content, mode)
+        print_tool_result(func_name, result)
         
     elif func_name == "delete_file":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         file_path = args.get("file_path", "")
         result = call_filesystem_script("deletefile", file_path)
+        print_tool_result(func_name, result)
         
     elif func_name == "rename_file":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         old_path = args.get("old_path", "")
         new_path = args.get("new_path", "")
         result = call_filesystem_script("renamefile", old_path, new_path)
+        print_tool_result(func_name, result)
         
     elif func_name == "shell":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         action = args.get("action", "command")
@@ -662,27 +850,29 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
             result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
         else:
             result = {"error": "Invalid action for shell. Use 'command' or 'file'."}
+        print_tool_result(func_name, result)
     
     # Backward compatibility
     elif func_name == "execute_file":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         file_path = args.get("file_path", "")
         exec_args = args.get("args", "")
         working_dir = args.get("working_dir", "")
         result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
+        print_tool_result(func_name, result)
     
     elif func_name == "run_command":
-        print_tool_call(func_name, args)
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
         command = args.get("command", "")
         working_dir = args.get("working_dir", "")
         result = call_filesystem_script("shell", "command", command, "", working_dir)
+        print_tool_result(func_name, result)
     
     else:
         result = {"error": f"Unknown function: {func_name}"}
+        print_tool_result(func_name, result)
     
     debug_print(f"Result: {json.dumps(result, ensure_ascii=False)[:500]}")
     return result
