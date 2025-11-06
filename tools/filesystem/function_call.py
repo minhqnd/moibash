@@ -71,7 +71,7 @@ CÁC FUNCTION KHẢ DỤNG:
 VÍ DỤ XỬ LÝ VỚI NGỮ CẢNH:
 User: "có file exe nào trong folder hiện tại và folder con không"
 → Step 1: search_files(".", "*.exe", recursive=true)
-→ Trả lời: "Có X file .exe: path1, path2..."
+→ Trả lời: "Có X file .exe: /path/tuyệt/đối/file1.exe, /path/tuyệt/đối/file2.exe..." (LUÔN hiển thị đường dẫn tuyệt đối)
 
 User: "xóa cho tôi" (tiếp theo câu trên)
 → HIỂU NGỮ CẢNH: User muốn xóa các file .exe vừa tìm được
@@ -104,10 +104,11 @@ QUAN TRỌNG:
 - LUÔN đọc và hiểu ngữ cảnh từ lịch sử chat trước đó
 - Khi user dùng đại từ (nó, chúng, đó) - tham chiếu đến đối tượng trong câu trước
 - Luôn xác nhận đường dẫn chính xác
+- LUÔN hiển thị đường dẫn TUYỆT ĐỐI (absolute path) khi liệt kê files (ví dụ: /Users/minhqnd/CODE/moibash/test.exe)
 - Chấp nhận luôn yêu cầu của user, không cần xác nhận lại trừ khi thao tác nguy hiểm
 - Với bulk operations (đổi tên/xóa nhiều file), xử lý tuần tự
 - Báo lỗi rõ ràng nếu không thực hiện được
-- Hiển thị kết quả chi tiết cho user
+- Hiển thị kết quả chi tiết cho user với đường dẫn đầy đủ
 - shell function có thể: chạy lệnh shell (action="command") hoặc execute script file (action="file")
 - Có thể kết hợp nhiều lệnh với pipe: ps aux | sort -nrk 4 | head -5
 - Với yêu cầu phức tạp, dùng shell để thực thi trực tiếp thay vì nhiều bước"""
@@ -344,8 +345,8 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
     
     # Clear any previous line (like spinner) before printing
-    print("\r\033[K", end='', file=sys.stderr)
-    print(border, file=sys.stderr)
+    print("\r\033[K", end='', file=sys.stderr, flush=True)
+    print(border, file=sys.stderr, flush=True)
     
     # Function name with icon
     icons = {
@@ -403,8 +404,8 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     if len(display) > CONTENT_WIDTH:
         display = display[:CONTENT_WIDTH-3] + "..."
     
-    print(f"│ {display:<{CONTENT_WIDTH}} │", file=sys.stderr)
-    print(bottom, file=sys.stderr)
+    print(f"│ {display:<{CONTENT_WIDTH}} │", file=sys.stderr, flush=True)
+    print(bottom, file=sys.stderr, flush=True)
 
 def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     """
