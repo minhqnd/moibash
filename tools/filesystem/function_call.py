@@ -11,11 +11,14 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import requests
+import time
 
 # Constants
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / "../../.env"
+HISTORY_FILE = SCRIPT_DIR / "../../chat_history_filesystem.txt"
 MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
+MAX_HISTORY_MESSAGES = 10  # Keep last 10 messages for context
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # Session state for "always accept"
@@ -39,13 +42,15 @@ def load_env():
 load_env()
 
 # System instruction
-SYSTEM_INSTRUCTION = """Bạn là trợ lý quản lý file hệ thống thông minh.
+SYSTEM_INSTRUCTION = """Bạn là trợ lý quản lý file hệ thống thông minh với khả năng ghi nhớ ngữ cảnh cuộc trò chuyện.
 
 KHI XỬ LÝ YÊU CẦU:
-1. Hiểu rõ yêu cầu của user về file operations
-2. Phân tích và quyết định các bước cần thực hiện
-3. Gọi function tương ứng với đường dẫn chính xác
-4. Xử lý kết quả và thông báo cho user
+1. QUAN TRỌNG: Luôn xem xét lịch sử chat trước đó để hiểu ngữ cảnh
+2. Nếu user dùng từ "nó", "chúng", "đó", "kia" - tham chiếu đến đối tượng trong câu trước
+3. Nếu user nói "xóa cho tôi" mà không chỉ rõ - xem xét câu hỏi trước để biết xóa gì
+4. Phân tích và quyết định các bước cần thực hiện
+5. Gọi function tương ứng với đường dẫn chính xác
+6. Xử lý kết quả và thông báo cho user
 
 CÁC FUNCTION KHẢ DỤNG:
 - read_file: Đọc nội dung file
@@ -53,10 +58,9 @@ CÁC FUNCTION KHẢ DỤNG:
 - update_file: Cập nhật nội dung file (overwrite/append)
 - delete_file: Xóa file hoặc folder
 - rename_file: Đổi tên file/folder
-- execute_file: Chạy file script (Python, Bash, Node.js)
 - list_files: Liệt kê files trong thư mục
 - search_files: Tìm kiếm files theo pattern
-- run_command: Thực thi lệnh hệ thống bất kỳ (ls, cat, cp, find, top, kill, v.v.)
+- shell: Thực thi lệnh shell hoặc chạy script file (thay thế cho execute_file và run_command)
 
 ĐƯỜNG DẪN:
 - Sử dụng đường dẫn tuyệt đối hoặc tương đối
@@ -64,46 +68,49 @@ CÁC FUNCTION KHẢ DỤNG:
 - Ví dụ: "./test.py", "/tmp/test.txt", "folder/file.txt"
 - list_files: nếu có thể liệt kê chi tiết ra, gồm bao nhiêu file, có các file gì, đuôi exetention gì, v.v.
 
-VÍ DỤ XỬ LÝ:
-User: "tạo file hello.py với nội dung hello world và chạy nó"
-→ Step 1: create_file("hello.py", "print('Hello World')")
-→ Step 2: execute_file("hello.py")
-
-User: "đổi tên tất cả file .exe thành .run"
+VÍ DỤ XỬ LÝ VỚI NGỮ CẢNH:
+User: "có file exe nào trong folder hiện tại và folder con không"
 → Step 1: search_files(".", "*.exe", recursive=true)
-→ Step 2: Với mỗi file, rename_file(old, new)
+→ Trả lời: "Có X file .exe: path1, path2..."
 
-User: "xóa tất cả file .exe trong folder này"
+User: "xóa cho tôi" (tiếp theo câu trên)
+→ HIỂU NGỮ CẢNH: User muốn xóa các file .exe vừa tìm được
+→ Step 1: Với mỗi file .exe, delete_file(path)
+
+User: "xóa các file exe trong folder hiện tại và folder con"
 → Step 1: search_files(".", "*.exe", recursive=true)
 → Step 2: Với mỗi file, delete_file(path)
+
+User: "tạo file hello.py với nội dung hello world và chạy nó"
+→ Step 1: create_file("hello.py", "print('Hello World')")
+→ Step 2: shell(action="file", file_path="hello.py")
 
 User: "folder này có bao nhiêu file"
 → Step 1: list_files(".", recursive=false)
 → Trả về: số lượng files và folders
 
 User: "tìm 5 tiến trình tốn ram nhất và kill cái đầu tiên"
-→ Step 1: run_command("ps aux --sort=-%mem | head -6")
-→ Step 2: Phân tích output để lấy PID của tiến trình đầu tiên
-→ Step 3: run_command("kill -9 <PID>")
+→ Step 1: shell(action="command", command="ps aux --sort=-%mem | head -6")
+→ Step 2: Phân tích output để lấy PID
+→ Step 3: shell(action="command", command="kill -9 <PID>")
 
 User: "liệt kê các file .txt trong thư mục này"
-→ Step 1: run_command("ls -la *.txt")
+→ Step 1: shell(action="command", command="ls -la *.txt")
 
 User: "copy file test.txt sang backup.txt"
-→ Step 1: run_command("cp test.txt backup.txt")
-
-User: "tìm tất cả file .log và xóa chúng"
-→ Step 1: run_command("find . -name '*.log' -delete")
+→ Step 1: shell(action="command", command="cp test.txt backup.txt")
 
 QUAN TRỌNG:
+- LUÔN đọc và hiểu ngữ cảnh từ lịch sử chat trước đó
+- Khi user dùng đại từ (nó, chúng, đó) - tham chiếu đến đối tượng trong câu trước
 - Luôn xác nhận đường dẫn chính xác
 - Chấp nhận luôn yêu cầu của user, không cần xác nhận lại trừ khi thao tác nguy hiểm
 - Với bulk operations (đổi tên/xóa nhiều file), xử lý tuần tự
 - Báo lỗi rõ ràng nếu không thực hiện được
 - Hiển thị kết quả chi tiết cho user
-- run_command có thể thực thi BẤT KỲ lệnh shell nào: ls, cat, cp, find, top, kill, ps, grep, v.v.
+- shell function có thể: chạy lệnh shell (action="command") hoặc execute script file (action="file")
 - Có thể kết hợp nhiều lệnh với pipe: ps aux | sort -nrk 4 | head -5
-- Với yêu cầu phức tạp, dùng run_command để thực thi trực tiếp thay vì nhiều bước"""
+- Với yêu cầu phức tạp, dùng shell để thực thi trực tiếp thay vì nhiều bước"""
 
 # Function declarations
 FUNCTION_DECLARATIONS = [
@@ -195,28 +202,6 @@ FUNCTION_DECLARATIONS = [
         }
     },
     {
-        "name": "execute_file",
-        "description": "Thực thi file script (Python, Bash, Node.js). CẦN XÁC NHẬN từ user.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Đường dẫn file cần chạy"
-                },
-                "args": {
-                    "type": "string",
-                    "description": "Arguments cho script (optional)"
-                },
-                "working_dir": {
-                    "type": "string",
-                    "description": "Working directory (optional, mặc định là thư mục hiện tại)"
-                }
-            },
-            "required": ["file_path"]
-        }
-    },
-    {
         "name": "list_files",
         "description": "Liệt kê files và folders trong một thư mục",
         "parameters": {
@@ -262,21 +247,34 @@ FUNCTION_DECLARATIONS = [
         }
     },
     {
-        "name": "run_command",
-        "description": "Thực thi lệnh hệ thống bất kỳ (ls, cat, cp, find, top, kill, v.v.). CẦN XÁC NHẬN từ user cho các lệnh nguy hiểm.",
+        "name": "shell",
+        "description": "Thực thi lệnh shell hoặc chạy script file. CẦN XÁC NHẬN từ user cho các lệnh nguy hiểm.",
         "parameters": {
             "type": "object",
             "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "'command' để chạy lệnh shell, 'file' để chạy script file",
+                    "enum": ["command", "file"]
+                },
                 "command": {
                     "type": "string",
-                    "description": "Lệnh shell cần thực thi (ví dụ: 'ls -la', 'ps aux | head -10', 'kill -9 1234')"
+                    "description": "Lệnh shell cần thực thi (chỉ dùng khi action='command'). Ví dụ: 'ls -la', 'ps aux | head -10', 'rm file.txt'"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Đường dẫn file script cần chạy (chỉ dùng khi action='file'). Hỗ trợ Python, Bash, Node.js"
+                },
+                "args": {
+                    "type": "string",
+                    "description": "Arguments cho script (optional, chỉ dùng khi action='file')"
                 },
                 "working_dir": {
                     "type": "string",
-                    "description": "Working directory để chạy lệnh (optional, mặc định là thư mục hiện tại)"
+                    "description": "Working directory (optional, mặc định là thư mục hiện tại)"
                 }
             },
-            "required": ["command"]
+            "required": ["action"]
         }
     }
 ]
@@ -288,6 +286,89 @@ def debug_print(*args, **kwargs):
     """Print debug messages to stderr"""
     if DEBUG:
         print("[DEBUG]", *args, file=sys.stderr, **kwargs)
+
+def load_chat_history() -> List[Dict]:
+    """Load chat history from file"""
+    if not HISTORY_FILE.exists():
+        return []
+    
+    try:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if not content:
+                return []
+            return json.loads(content)
+    except Exception as e:
+        debug_print(f"Error loading history: {e}")
+        return []
+
+def save_chat_history(history: List[Dict]):
+    """Save chat history to file"""
+    try:
+        # Keep only last MAX_HISTORY_MESSAGES
+        if len(history) > MAX_HISTORY_MESSAGES * 2:  # *2 because we have user+model pairs
+            history = history[-(MAX_HISTORY_MESSAGES * 2):]
+        
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        debug_print(f"Error saving history: {e}")
+
+def print_tool_call(func_name: str, args: Dict[str, Any]):
+    """Print tool call information with border"""
+    border = "╭" + "─" * 94 + "╮"
+    bottom = "╰" + "─" * 94 + "╯"
+    
+    print(border, file=sys.stderr)
+    
+    # Function name with icon
+    icons = {
+        "read_file": "📖",
+        "create_file": "📝",
+        "update_file": "✏️",
+        "delete_file": "🗑️",
+        "rename_file": "📝",
+        "list_files": "📁",
+        "search_files": "🔍",
+        "shell": "⚡"
+    }
+    icon = icons.get(func_name, "🔧")
+    
+    # Format function name and args
+    if func_name == "shell":
+        action = args.get("action", "")
+        if action == "command":
+            display = f"{icon}  Shell: {args.get('command', 'N/A')}"
+        elif action == "file":
+            display = f"{icon}  Shell: Execute {args.get('file_path', 'N/A')}"
+        else:
+            display = f"{icon}  Shell"
+    elif func_name == "list_files":
+        dir_path = args.get("dir_path", ".")
+        recursive = args.get("recursive", "false")
+        pattern = args.get("pattern", "*")
+        display = f"{icon}  ListFiles: {dir_path}"
+        if pattern != "*":
+            display += f" (pattern: {pattern})"
+    elif func_name == "search_files":
+        pattern = args.get("name_pattern", "*")
+        dir_path = args.get("dir_path", ".")
+        display = f"{icon}  FindFiles: '{pattern}' within {dir_path}"
+    elif func_name == "read_file":
+        display = f"{icon}  ReadFile: {args.get('file_path', 'N/A')}"
+    elif func_name == "create_file":
+        display = f"{icon}  CreateFile: {args.get('file_path', 'N/A')}"
+    elif func_name == "update_file":
+        display = f"{icon}  UpdateFile: {args.get('file_path', 'N/A')}"
+    elif func_name == "delete_file":
+        display = f"{icon}  DeleteFile: {args.get('file_path', 'N/A')}"
+    elif func_name == "rename_file":
+        display = f"{icon}  RenameFile: {args.get('old_path', '')} → {args.get('new_path', '')}"
+    else:
+        display = f"{icon}  {func_name}"
+    
+    print(f"│ {display:<92} │", file=sys.stderr)
+    print(bottom, file=sys.stderr)
 
 def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     """
@@ -317,12 +398,14 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
         print(f"📝 Đổi tên:", file=sys.stderr)
         print(f"   Từ: {details.get('old_path', 'N/A')}", file=sys.stderr)
         print(f"   Sang: {details.get('new_path', 'N/A')}", file=sys.stderr)
-    elif action == "execute_file":
-        print(f"▶️  Chạy file: {details.get('file_path', 'N/A')}", file=sys.stderr)
-        if details.get('args'):
-            print(f"   Arguments: {details.get('args')}", file=sys.stderr)
-    elif action == "run_command":
-        print(f"⚡ Chạy lệnh: {details.get('command', 'N/A')}", file=sys.stderr)
+    elif action == "shell":
+        shell_action = details.get('action', '')
+        if shell_action == "command":
+            print(f"⚡ Chạy lệnh: {details.get('command', 'N/A')}", file=sys.stderr)
+        elif shell_action == "file":
+            print(f"▶️  Chạy file: {details.get('file_path', 'N/A')}", file=sys.stderr)
+            if details.get('args'):
+                print(f"   Arguments: {details.get('args')}", file=sys.stderr)
         if details.get('working_dir'):
             print(f"   Working dir: {details.get('working_dir')}", file=sys.stderr)
     
@@ -398,8 +481,11 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     debug_print(f"Function: {func_name}")
     debug_print(f"Args: {json.dumps(args, ensure_ascii=False)}")
     
+    # Print tool call
+    print_tool_call(func_name, args)
+    
     # Các function cần confirmation
-    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "execute_file", "run_command"]
+    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "shell"]
     
     # Kiểm tra và yêu cầu confirmation nếu cần
     if func_name in needs_confirmation:
@@ -434,12 +520,6 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         new_path = args.get("new_path", "")
         result = call_filesystem_script("renamefile", old_path, new_path)
         
-    elif func_name == "execute_file":
-        file_path = args.get("file_path", "")
-        exec_args = args.get("args", "")
-        working_dir = args.get("working_dir", "")
-        result = call_filesystem_script("executefile", file_path, exec_args, working_dir)
-        
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
         pattern = args.get("pattern", "*")
@@ -452,10 +532,19 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         recursive = args.get("recursive", "true")
         result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
         
-    elif func_name == "run_command":
-        command = args.get("command", "")
+    elif func_name == "shell":
+        action = args.get("action", "command")
         working_dir = args.get("working_dir", "")
-        result = call_filesystem_script("processtool", command, working_dir)
+        
+        if action == "command":
+            command = args.get("command", "")
+            result = call_filesystem_script("shell", "command", command, "", working_dir)
+        elif action == "file":
+            file_path = args.get("file_path", "")
+            exec_args = args.get("args", "")
+            result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
+        else:
+            result = {"error": "Invalid action for shell. Use 'command' or 'file'."}
     
     debug_print(f"Result: {json.dumps(result, ensure_ascii=False)[:500]}")
     return result
@@ -531,8 +620,12 @@ def main():
             print("❌ Lỗi: Chưa thiết lập GEMINI_API_KEY!", file=sys.stderr)
             sys.exit(1)
         
-        # Initialize conversation
-        conversation = [
+        # Load chat history for context
+        chat_history = load_chat_history()
+        debug_print(f"Loaded {len(chat_history)} messages from history")
+        
+        # Initialize conversation with history + new message
+        conversation = chat_history + [
             {
                 "role": "user",
                 "parts": [{"text": user_message}]
@@ -588,6 +681,12 @@ def main():
             elif response_type == "TEXT":
                 # Final response from Gemini
                 print(value)
+                
+                # Save chat history (exclude initial history, only new conversation)
+                new_messages = conversation[len(chat_history):]
+                updated_history = chat_history + new_messages
+                save_chat_history(updated_history)
+                
                 sys.exit(0)
                 
             elif response_type == "NO_RESPONSE":
