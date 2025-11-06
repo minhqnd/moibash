@@ -344,8 +344,7 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
     CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
     
-    # Clear any previous line (like spinner) before printing
-    print("\r\033[K", end='', file=sys.stderr, flush=True)
+    # Print border (spinner is already stopped by router.sh)
     print(border, file=sys.stderr, flush=True)
     
     # Function name with icon

@@ -241,11 +241,12 @@ start_spinner "$intent"
 # Debug: Hiển thị intent (có thể tắt sau)
 # echo "[Intent: $intent]" >&2
 
+# Dừng spinner TRƯỚC KHI gọi tool để tránh race condition
+# Tool sẽ tự xóa dòng spinner khi print output
+stop_spinner
+
 # Thực thi tool tương ứng
 execute_tool "$intent" "$USER_MESSAGE"
 exit_code=$?
-
-# Dừng spinner khi đã có phản hồi
-stop_spinner
 
 exit $exit_code
