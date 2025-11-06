@@ -331,6 +331,17 @@ def save_chat_history(history: List[Dict]):
 
 def print_tool_call(func_name: str, args: Dict[str, Any]):
     """Print tool call information with border"""
+    # Stop spinner if it's running (from router.sh)
+    spinner_pid = os.environ.get('MOIBASH_SPINNER_PID')
+    if spinner_pid:
+        try:
+            # Clear the spinner line first
+            print("\r\033[K", end='', file=sys.stderr, flush=True)
+            # Kill spinner process
+            subprocess.run(['kill', spinner_pid], stderr=subprocess.DEVNULL)
+        except:
+            pass
+    
     # Get terminal width, default to 94 if can't determine
     try:
         import shutil
@@ -344,7 +355,7 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
     CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
     
-    # Print border (spinner is already stopped by router.sh)
+    # Print border
     print(border, file=sys.stderr, flush=True)
     
     # Function name with icon
