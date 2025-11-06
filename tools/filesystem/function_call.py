@@ -401,6 +401,10 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     """
     Yêu cầu xác nhận từ user cho các thao tác nguy hiểm
     Returns: True nếu user đồng ý, False nếu từ chối
+    
+    Note: This function intentionally displays operation details to stderr for user confirmation.
+    All sensitive data is sanitized via sanitize_for_display() before display.
+    This is not logging - it's an interactive confirmation prompt.
     """
     # Nếu đã chọn "always accept", tự động chấp nhận
     if SESSION_STATE["always_accept"]:
