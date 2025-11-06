@@ -30,3 +30,5 @@ test_*.txt
 test_*.sh
 *.exe
 *.run
+__pycache__/
+*.pyc
