@@ -58,6 +58,13 @@ SPINNER_CALENDAR=(
     "📅 Đang kiểm tra các sự kiện sắp tới"
     "📋 Đang sắp xếp lịch trình"
 )
+SPINNER_MUSIC=(
+    "🎵 Đang dò tìm bài hát bạn yêu cầu..."
+    "🎶 Kết nối iTunes API..."
+    "🎧 Đang tìm bản preview phù hợp..."
+    "🔍 Đang truy xuất thông tin ca sĩ và album..."
+    "🎤 Đang chuẩn bị phát nhạc..."
+)
 
 SPINNER_WEATHER=(
     "🌤️ Đang ra ngoài trời nhìn mây"
@@ -95,6 +102,9 @@ get_random_message_for_intent() {
         weather)
             messages=("${SPINNER_WEATHER[@]}")
             ;;
+        music)
+            messages=("${SPINNER_MUSIC[@]}")
+            ;;  
         filesystem)
             messages=("${SPINNER_FILESYSTEM[@]}")
             ;;
@@ -192,6 +202,9 @@ execute_tool() {
         google_search)
             "$TOOLS_DIR/google_search.sh" "$message"
             ;;
+        music)
+            "$TOOLS_DIR/music/function_call.sh" "$message"
+            ;;    
         weather)
             "$TOOLS_DIR/weather/function_call.sh" "$message"
             ;;
