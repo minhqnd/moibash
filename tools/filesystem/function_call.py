@@ -105,13 +105,30 @@ QUAN TRỌNG:
 - Khi user dùng đại từ (nó, chúng, đó) - tham chiếu đến đối tượng trong câu trước
 - Luôn xác nhận đường dẫn chính xác
 - LUÔN hiển thị đường dẫn TUYỆT ĐỐI (absolute path) khi liệt kê files (ví dụ: /Users/minhqnd/CODE/moibash/test.exe)
-- Chấp nhận luôn yêu cầu của user, không cần xác nhận lại trừ khi thao tác nguy hiểm
-- Với bulk operations (đổi tên/xóa nhiều file), xử lý tuần tự
+- **QUAN TRỌNG NHẤT**: KHI USER YÊU CẦU XÓA/ĐỔI TÊN/CẬP NHẬT FILE - THỰC HIỆN NGAY, ĐỪNG HỎI LẠI!
+- Hệ thống đã có confirmation riêng, ĐỪNG hỏi lại user trong chat response
+- Với bulk operations (xóa/đổi tên nhiều file), gọi function cho TỪNG file tuần tự
+- Sau khi thực thi xong, báo kết quả thành công/thất bại
 - Báo lỗi rõ ràng nếu không thực hiện được
 - Hiển thị kết quả chi tiết cho user với đường dẫn đầy đủ
 - shell function có thể: chạy lệnh shell (action="command") hoặc execute script file (action="file")
 - Có thể kết hợp nhiều lệnh với pipe: ps aux | sort -nrk 4 | head -5
-- Với yêu cầu phức tạp, dùng shell để thực thi trực tiếp thay vì nhiều bước"""
+- Với yêu cầu phức tạp, dùng shell để thực thi trực tiếp thay vì nhiều bước
+
+VÍ DỤ ĐÚNG KHI XÓA NHIỀU FILE:
+User: "xóa các file .tmp"
+❌ SAI: "Bạn có chắc muốn xóa các file sau không?..."
+✅ ĐÚNG: 
+→ Step 1: search_files(".", "*.tmp", recursive=false)  # LUÔN tìm/list trước, dù đã có trong context
+→ Step 2: delete_file("/path/to/test1.tmp")
+→ Step 3: delete_file("/path/to/test2.tmp")
+→ Step 4: delete_file("/path/to/test3.tmp")
+→ Trả lời: "Đã xóa thành công 3 files .tmp"
+
+QUY TẮC QUAN TRỌNG CHO BULK DELETE/RENAME:
+- Dù user vừa hỏi "có file X nào không" ở câu trước, khi user nói "xóa file X" thì VẪN PHẢI gọi search_files/list_files lại
+- Lý do: Để user thấy rõ tool đang tìm kiếm trước khi xóa (tăng tính minh bạch)
+- Flow bắt buộc: SEARCH/LIST → DELETE → REPORT RESULT"""
 
 # Function declarations
 FUNCTION_DECLARATIONS = [
@@ -329,8 +346,17 @@ def save_chat_history(history: List[Dict]):
     except Exception as e:
         debug_print(f"Error saving history: {e}")
 
-def print_tool_call(func_name: str, args: Dict[str, Any]):
-    """Print tool call information with border"""
+def get_terminal_width() -> int:
+    """Get terminal width with fallback"""
+    try:
+        import shutil
+        terminal_width = shutil.get_terminal_size().columns
+        return min(terminal_width - 2, 120)
+    except:
+        return 94
+
+def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
+    """Print tool call information with border and optional result"""
     # Stop spinner if it's running (from router.sh)
     spinner_pid = os.environ.get('MOIBASH_SPINNER_PID')
     if spinner_pid:
@@ -342,18 +368,10 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
         except:
             pass
     
-    # Get terminal width, default to 94 if can't determine
-    try:
-        import shutil
-        terminal_width = shutil.get_terminal_size().columns
-        # Use min of terminal width and 120 for readability
-        BORDER_WIDTH = min(terminal_width - 2, 120)
-    except:
-        BORDER_WIDTH = 94
-    
+    BORDER_WIDTH = get_terminal_width()
     border = "╭" + "─" * BORDER_WIDTH + "╮"
     bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH - 2  # Subtract 2 for the side borders
+    CONTENT_WIDTH = BORDER_WIDTH - 2
     
     # Print border
     print(border, file=sys.stderr, flush=True)
@@ -414,10 +432,27 @@ def print_tool_call(func_name: str, args: Dict[str, Any]):
     if len(display) > CONTENT_WIDTH:
         display = display[:CONTENT_WIDTH-3] + "..."
     
-    print(f"│ {display:<{CONTENT_WIDTH}} │", file=sys.stderr, flush=True)
+    print(f"│ ✓  {display:<{CONTENT_WIDTH-3}} │", file=sys.stderr, flush=True)
+    
+    # Print result if provided
+    if result:
+        print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr, flush=True)
+        
+        # Format result based on function type
+        if func_name == "search_files" or func_name == "list_files":
+            if "files" in result:
+                files = result["files"]
+                count = len(files) if isinstance(files, list) else 0
+                print(f"│    Found {count} matching file(s){' ' * (CONTENT_WIDTH - 30)}│", file=sys.stderr, flush=True)
+        elif func_name == "read_file":
+            if "content" in result:
+                content = result["content"]
+                lines = content.count('\n') + 1 if content else 0
+                print(f"│    Read {lines} line(s){' ' * (CONTENT_WIDTH - 21)}│", file=sys.stderr, flush=True)
+    
     print(bottom, file=sys.stderr, flush=True)
 
-def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
+def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = False) -> bool:
     """
     Yêu cầu xác nhận từ user cho các thao tác nguy hiểm
     Returns: True nếu user đồng ý, False nếu từ chối
@@ -430,51 +465,63 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
     if SESSION_STATE["always_accept"]:
         return True
     
-    # Hiển thị thông tin thao tác
-    print("\n" + "="*60, file=sys.stderr)
-    print("⚠️  CẦN XÁC NHẬN THAO TÁC", file=sys.stderr)
-    print("="*60, file=sys.stderr)
+    BORDER_WIDTH = get_terminal_width()
+    border = "╭" + "─" * BORDER_WIDTH + "╮"
+    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
+    CONTENT_WIDTH = BORDER_WIDTH - 2
+    
+    # Print confirmation box
+    print(border, file=sys.stderr)
+    print(f"│ ?  Confirm Action{' ' * (CONTENT_WIDTH - 17)}│", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
     
     # Format thông tin dựa trên action (with sanitization)
     if action == "create_file":
-        file_path = sanitize_for_display(details.get('file_path', ''), 80)
-        print(f"📝 Tạo file: {file_path}", file=sys.stderr)
-        content = sanitize_for_display(details.get('content', ''), 100)
-        print(f"   Nội dung: {content}...", file=sys.stderr)
+        file_path = details.get('file_path', '')
+        safe_path = sanitize_for_display(file_path, 60)
+        print(f"│   📝 Create: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
+        content = sanitize_for_display(details.get('content', ''), 50)
+        print(f"│      Content: {content:<{CONTENT_WIDTH-17}}│", file=sys.stderr)
     elif action == "update_file":
-        file_path = sanitize_for_display(details.get('file_path', ''), 80)
-        print(f"✏️  Cập nhật file: {file_path}", file=sys.stderr)
-        print(f"   Mode: {details.get('mode', 'overwrite')}", file=sys.stderr)
+        file_path = details.get('file_path', '')
+        safe_path = sanitize_for_display(file_path, 60)
+        mode = details.get('mode', 'overwrite')
+        print(f"│   ✏️  Update: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
+        print(f"│      Mode: {mode:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
     elif action == "delete_file":
-        file_path = sanitize_for_display(details.get('file_path', ''), 80)
-        print(f"🗑️  Xóa: {file_path}", file=sys.stderr)
+        file_path = details.get('file_path', '')
+        safe_path = sanitize_for_display(file_path, 60)
+        print(f"│   🗑️  Delete: {safe_path:<{CONTENT_WIDTH-14}}│", file=sys.stderr)
     elif action == "rename_file":
-        print(f"📝 Đổi tên:", file=sys.stderr)
-        old_path = sanitize_for_display(details.get('old_path', ''), 80)
-        new_path = sanitize_for_display(details.get('new_path', ''), 80)
-        print(f"   Từ: {old_path}", file=sys.stderr)
-        print(f"   Sang: {new_path}", file=sys.stderr)
+        old_path = sanitize_for_display(details.get('old_path', ''), 60)
+        new_path = sanitize_for_display(details.get('new_path', ''), 60)
+        print(f"│   📝 Rename:", file=sys.stderr)
+        print(f"│      From: {old_path:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
+        print(f"│      To: {new_path:<{CONTENT_WIDTH-13}}│", file=sys.stderr)
     elif action == "shell":
         shell_action = details.get('action', '')
         if shell_action == "command":
-            command = sanitize_for_display(details.get('command', ''), 80)
-            print(f"⚡ Chạy lệnh: {command}", file=sys.stderr)
+            command = sanitize_for_display(details.get('command', ''), 60)
+            print(f"│   ⚡ Shell: {command:<{CONTENT_WIDTH-12}}│", file=sys.stderr)
         elif shell_action == "file":
-            file_path = sanitize_for_display(details.get('file_path', ''), 80)
-            print(f"▶️  Chạy file: {file_path}", file=sys.stderr)
+            file_path = sanitize_for_display(details.get('file_path', ''), 60)
+            print(f"│   ▶️  Execute: {file_path:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
             if details.get('args'):
                 args = sanitize_for_display(details.get('args', ''), 50)
-                print(f"   Arguments: {args}", file=sys.stderr)
+                print(f"│      Args: {args:<{CONTENT_WIDTH-15}}│", file=sys.stderr)
         if details.get('working_dir'):
-            working_dir = sanitize_for_display(details.get('working_dir', ''), 60)
-            print(f"   Working dir: {working_dir}", file=sys.stderr)
+            working_dir = sanitize_for_display(details.get('working_dir', ''), 55)
+            print(f"│      Working dir: {working_dir:<{CONTENT_WIDTH-21}}│", file=sys.stderr)
     
-    print("\nTùy chọn:", file=sys.stderr)
-    print("  y/yes/đồng ý  - Đồng ý thực hiện", file=sys.stderr)
-    print("  a/always/luôn - Luôn đồng ý (cho cả session)", file=sys.stderr)
-    print("  n/no/từ chối  - Từ chối (hủy thao tác)", file=sys.stderr)
-    print("="*60, file=sys.stderr)
-    print("Lựa chọn của bạn: ", end='', file=sys.stderr, flush=True)
+    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
+    print(f"│ Allow execution?{' ' * (CONTENT_WIDTH - 17)}│", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
+    print(f"│ ● 1. Yes, allow once{' ' * (CONTENT_WIDTH - 21)}│", file=sys.stderr)
+    print(f"│   2. Yes, allow always{' ' * (CONTENT_WIDTH - 23)}│", file=sys.stderr)
+    print(f"│   3. No, cancel (esc){' ' * (CONTENT_WIDTH - 23)}│", file=sys.stderr)
+    print(f"│{' ' * CONTENT_WIDTH}│", file=sys.stderr)
+    print(bottom, file=sys.stderr)
+    print("Choice: ", end='', file=sys.stderr, flush=True)
     
     # Đọc input từ user
     try:
@@ -488,15 +535,15 @@ def get_confirmation(action: str, details: Dict[str, Any]) -> bool:
         raise
     
     # Xử lý lựa chọn
-    if choice in ['y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
-        print("✅ Đã chấp nhận\n", file=sys.stderr)
+    if choice in ['1', 'y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
+        print("\n✅ Allowed\n", file=sys.stderr)
         return True
-    elif choice in ['a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
+    elif choice in ['2', 'a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
         SESSION_STATE["always_accept"] = True
-        print("✅ Đã chọn luôn đồng ý cho session này\n", file=sys.stderr)
+        print("\n✅ Allowed (will apply to all following actions)\n", file=sys.stderr)
         return True
     else:
-        print("❌ Đã từ chối thao tác\n", file=sys.stderr)
+        print("\n❌ Cancelled\n", file=sys.stderr)
         return False
 
 def call_filesystem_script(script_name: str, *args) -> Dict[str, Any]:
@@ -541,58 +588,68 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     debug_print(f"Function: {func_name}")
     debug_print(f"Args: {json.dumps(args, ensure_ascii=False)}")
     
-    # Print tool call
-    print_tool_call(func_name, args)
+    # Các function KHÔNG cần confirmation - thực thi ngay và hiển thị kết quả
+    no_confirm_needed = ["read_file", "list_files", "search_files"]
     
-    # Các function cần confirmation
-    needs_confirmation = ["create_file", "update_file", "delete_file", "rename_file", "shell", "execute_file", "run_command"]
+    # Execute function
+    result = None
     
-    # Kiểm tra và yêu cầu confirmation nếu cần
-    if func_name in needs_confirmation:
-        if not get_confirmation(func_name, args):
-            return {
-                "error": "User từ chối thao tác",
-                "cancelled": True
-            }
-    
-    # Thực thi function
     if func_name == "read_file":
         file_path = args.get("file_path", "")
         result = call_filesystem_script("readfile", file_path)
-        
-    elif func_name == "create_file":
-        file_path = args.get("file_path", "")
-        content = args.get("content", "")
-        result = call_filesystem_script("createfile", file_path, content)
-        
-    elif func_name == "update_file":
-        file_path = args.get("file_path", "")
-        content = args.get("content", "")
-        mode = args.get("mode", "overwrite")
-        result = call_filesystem_script("updatefile", file_path, content, mode)
-        
-    elif func_name == "delete_file":
-        file_path = args.get("file_path", "")
-        result = call_filesystem_script("deletefile", file_path)
-        
-    elif func_name == "rename_file":
-        old_path = args.get("old_path", "")
-        new_path = args.get("new_path", "")
-        result = call_filesystem_script("renamefile", old_path, new_path)
+        print_tool_call(func_name, args, result)
         
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
         pattern = args.get("pattern", "*")
         recursive = args.get("recursive", "false")
         result = call_filesystem_script("listfiles", dir_path, pattern, recursive)
+        print_tool_call(func_name, args, result)
         
     elif func_name == "search_files":
         dir_path = args.get("dir_path", ".")
         name_pattern = args.get("name_pattern", "*")
         recursive = args.get("recursive", "true")
         result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
+        print_tool_call(func_name, args, result)
+        
+    # Functions cần confirmation - hiển thị trước, confirm, rồi thực thi
+    elif func_name == "create_file":
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
+        file_path = args.get("file_path", "")
+        content = args.get("content", "")
+        result = call_filesystem_script("createfile", file_path, content)
+        
+    elif func_name == "update_file":
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
+        file_path = args.get("file_path", "")
+        content = args.get("content", "")
+        mode = args.get("mode", "overwrite")
+        result = call_filesystem_script("updatefile", file_path, content, mode)
+        
+    elif func_name == "delete_file":
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
+        file_path = args.get("file_path", "")
+        result = call_filesystem_script("deletefile", file_path)
+        
+    elif func_name == "rename_file":
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
+        old_path = args.get("old_path", "")
+        new_path = args.get("new_path", "")
+        result = call_filesystem_script("renamefile", old_path, new_path)
         
     elif func_name == "shell":
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
         action = args.get("action", "command")
         working_dir = args.get("working_dir", "")
         
@@ -606,16 +663,20 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         else:
             result = {"error": "Invalid action for shell. Use 'command' or 'file'."}
     
-    # Backward compatibility for old function names
+    # Backward compatibility
     elif func_name == "execute_file":
-        # Map to shell with action="file"
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
         file_path = args.get("file_path", "")
         exec_args = args.get("args", "")
         working_dir = args.get("working_dir", "")
         result = call_filesystem_script("shell", "file", file_path, exec_args, working_dir)
     
     elif func_name == "run_command":
-        # Map to shell with action="command"
+        print_tool_call(func_name, args)
+        if not get_confirmation(func_name, args):
+            return {"error": "User cancelled", "cancelled": True}
         command = args.get("command", "")
         working_dir = args.get("working_dir", "")
         result = call_filesystem_script("shell", "command", command, "", working_dir)
