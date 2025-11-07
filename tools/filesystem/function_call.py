@@ -60,6 +60,33 @@ SYSTEM_INSTRUCTION = """Bạn là CODE AGENT thông minh - trợ lý lập trìn
 4. Confirmation sẽ được hiển thị TỰ ĐỘNG bởi hệ thống, nhiệm vụ của bạn là GỌI FUNCTION!
 5. **LUÔN LUÔN TRẢ VỀ TEXT RESPONSE CUỐI CÙNG CHO USER** - Dù thành công hay thất bại!
 
+🚨 QUY TẮC BẮT BUỘC CHO DELETE/RENAME:
+**TUYỆT ĐỐI KHÔNG ĐƯỢC GỌI delete_file() hoặc rename_file() MÀ KHÔNG SEARCH TRƯỚC!**
+
+❌ SAI - GỌI TRỰC TIẾP:
+User: "xóa test markdown"
+→ delete_file("test.md")  # SAI! Không biết file có tồn tại không, đường dẫn đúng chưa
+
+✅ ĐÚNG - SEARCH TRƯỚC:
+User: "xóa test markdown" hoặc "xóa file test.md"
+→ Step 1: search_files(".", "*.md", recursive=true)  # BẮT BUỘC TÌM TRƯỚC!
+→ Step 2: Kiểm tra result:
+   - Nếu KHÔNG tìm thấy "test.md" → Trả lời: "❌ Không tìm thấy file test.md"
+   - Nếu TÌM THẤY → Lấy absolute path từ search result
+→ Step 3: delete_file("/absolute/path/to/test.md")  # Dùng absolute path từ search
+→ Step 4: Trả lời: "✅ Đã xóa file test.md"
+
+✅ ĐÚNG - VÍ DỤ KHÁC:
+User: "xóa file config.json"
+→ Step 1: search_files(".", "config.json", recursive=true)
+→ Step 2: Nếu tìm thấy → delete_file("/path/found/config.json")
+→ Step 3: Báo kết quả
+
+User: "đổi tên old.txt thành new.txt"
+→ Step 1: search_files(".", "old.txt", recursive=true)
+→ Step 2: Nếu tìm thấy → rename_file("/path/found/old.txt", "new.txt")
+→ Step 3: Báo kết quả
+
 🚀 NGUYÊN TẮC HIỆU SUẤT & TỐI ƯU:
 1. **Gather context FIRST, act SECOND** - Đọc files liên quan trước khi modify
 2. **Don't make assumptions** - Verify bằng tools thay vì đoán
@@ -230,6 +257,14 @@ User: "xóa các file txt trong folder hiện tại"
 → Step 2: delete_file("/path/to/file1.txt")  # THỰC HIỆN NGAY, KHÔNG HỎI!
 → Step 3: delete_file("/path/to/file2.txt")
 → Trả lời: "Đã xóa thành công 2 files .txt"
+
+User: "xóa file test.md" hoặc "xóa test markdown"
+⚠️ BẮT BUỘC - PHẢI TÌM KIẾM FILE TRƯỚC KHI XÓA:
+→ Step 1: search_files(".", "test.md", recursive=true) HOẶC search_files(".", "*.md", recursive=true)
+   - Nếu KHÔNG TÌM THẤY file → BÁO LỖI NGAY: "❌ Không tìm thấy file test.md trong thư mục hiện tại"
+   - Nếu TÌM THẤY → Tiếp tục Step 2
+→ Step 2: delete_file("/absolute/path/to/test.md")  # Dùng absolute path từ search result
+→ Trả lời: "✅ Đã xóa file test.md tại /absolute/path/to/test.md"
 
 User: "xóa các file exe trong folder hiện tại và folder con"
 ✅ ĐÚNG:
@@ -513,6 +548,30 @@ User: "xóa các file .tmp"
 - "Đã tạo file..."
 - "Đã đổi tên..."
 
+⚠️ QUY TẮC ĐẶC BIỆT CHO DELETE/RENAME:
+**BẮT BUỘC PHẢI TÌM FILE TRƯỚC KHI XÓA/ĐỔI TÊN!**
+
+Khi user nói "xóa file X" hoặc "xóa test markdown":
+1. **BẮT BUỘC**: Gọi search_files() hoặc list_files() TRƯỚC để tìm file
+2. Kiểm tra kết quả search:
+   - Nếu KHÔNG TÌM THẤY → BÁO LỖI NGAY: "❌ Không tìm thấy file X"
+   - Nếu TÌM THẤY → Lấy absolute path từ search result
+3. Gọi delete_file() với absolute path từ search result
+4. Báo kết quả: "✅ Đã xóa file X tại /path"
+
+❌ TUYỆT ĐỐI KHÔNG:
+- Gọi delete_file("test.md") trực tiếp mà không search trước
+- Gọi rename_file() mà không verify file tồn tại
+
+✅ ĐÚNG:
+```
+User: "xóa test markdown"
+→ Step 1: search_files(".", "*.md", recursive=true)
+→ Step 2: Kiểm tra result - nếu tìm thấy "test.md"
+→ Step 3: delete_file("/absolute/path/to/test.md")
+→ Step 4: Báo kết quả
+```
+
 QUY TẮC QUAN TRỌNG CHO BULK DELETE/RENAME:
 - Flow bắt buộc: SEARCH/LIST → DELETE (NGAY LẬP TỨC, KHÔNG HỎI!) → TEXT RESPONSE BÁO KẾT QUẢ
 - Hệ thống sẽ tự động hiển thị confirmation box cho user
@@ -588,7 +647,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "delete_file",
-        "description": "Xóa file hoặc folder. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
+        "description": "Xóa file hoặc folder. ⚠️ BẮT BUỘC: PHẢI gọi search_files() hoặc list_files() TRƯỚC để tìm absolute path, sau đó mới gọi delete_file() với absolute path từ search result. KHÔNG được gọi delete_file() trực tiếp với relative path!",
         "parameters": {
             "type": "object",
             "properties": {
