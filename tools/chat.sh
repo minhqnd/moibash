@@ -39,6 +39,7 @@ Response Guidelines:
 - Focus on chat-related queries; for specific tools, guide users to use appropriate commands
 - Explain complex concepts in simple terms when needed
 - Ask clarifying questions when user intent is unclear
+- Use markdown formatting for better readability
 
 When users ask about system capabilities or need help with specific features, provide accurate information about available tools and how to use them effectively."
 

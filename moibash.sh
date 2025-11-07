@@ -195,10 +195,10 @@ display_user_message() {
 display_agent_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    echo -ne "${MAGENTA}${BOLD}Agent:${RESET} "
+    echo -ne "${MAGENTA}${BOLD}moiBash:${RESET} "
     parse_markdown "$message"
     # Lưu vào lịch sử
-    echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
+    echo "[$timestamp] moiBash: $message" >> "$CHAT_HISTORY"
 }
 
 # Hàm hiển thị lỗi
@@ -345,14 +345,14 @@ init_chat() {
     show_banner
     
     # Tin nhắn chào mừng từ agent
-    display_agent_message "Xin chào! Tôi là **Chat Agent** rất *vui* được trò chuyện với bạn! 👋"
+    display_agent_message "Xin chào! Tôi là **moiBash**, rất *vui* được hỗ trợ bạn! 👋"
     echo ""
 }
 
 # Hàm main loop
 main_loop() {
-    # Hiển thị path cho input đầu tiên (không có \n vì đã có echo "" ở trên)
-    local display_path="${SCRIPT_DIR/#$HOME/~}"
+    # Hiển thị path cho input đầu tiên (dùng PWD thay vì SCRIPT_DIR)
+    local display_path="${PWD/#$HOME/~}"
     echo -e "${GRAY}╭─ $display_path${RESET}"
     
     while true; do
@@ -374,8 +374,8 @@ main_loop() {
         # Xử lý input
         process_input "$user_input"
         
-        # Sau khi xử lý xong, hiển thị path cho input tiếp theo
-        local display_path="${SCRIPT_DIR/#$HOME/~}"
+        # Sau khi xử lý xong, hiển thị path cho input tiếp theo (dùng PWD)
+        local display_path="${PWD/#$HOME/~}"
         echo -e "\n${GRAY}╭─ $display_path${RESET}"
     done
 }
