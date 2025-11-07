@@ -155,26 +155,24 @@ show_version() {
 
 # Hàm hiển thị usage
 show_usage() {
-    cat << EOF
-${CYAN}${BOLD}Moibash${RESET} - AI Chat Agent với Function Calling
-
-${YELLOW}${BOLD}Usage:${RESET}
-  moibash               Khởi động chat interface
-  moibash --help        Hiển thị hướng dẫn sử dụng
-  moibash --version     Hiển thị phiên bản
-  moibash --update      Cập nhật từ GitHub
-
-${YELLOW}${BOLD}Trong chat:${RESET}
-  /help                 Danh sách lệnh
-  /clear                Xóa màn hình
-  /exit, /quit          Thoát
-
-${YELLOW}${BOLD}Examples:${RESET}
-  moibash                           # Bắt đầu chat
-  moibash --update                  # Cập nhật phiên bản mới
-
-${BLUE}Repository:${RESET} https://github.com/minhqnd/moibash
-EOF
+    echo -e "${CYAN}${BOLD}Moibash${RESET} - AI Chat Agent với Function Calling"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Usage:${RESET}"
+    echo "  moibash               Khởi động chat interface"
+    echo "  moibash --help        Hiển thị hướng dẫn sử dụng"
+    echo "  moibash --version     Hiển thị phiên bản"
+    echo "  moibash --update      Cập nhật từ GitHub"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Trong chat:${RESET}"
+    echo "  /help                 Danh sách lệnh"
+    echo "  /clear                Xóa màn hình"
+    echo "  /exit, /quit          Thoát"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Examples:${RESET}"
+    echo "  moibash                           # Bắt đầu chat"
+    echo "  moibash --update                  # Cập nhật phiên bản mới"
+    echo ""
+    echo -e "${BLUE}Repository:${RESET} https://github.com/minhqnd/moibash"
 }
 
 # Hàm lấy thời gian hiện tại
@@ -315,12 +313,9 @@ process_input() {
         local exit_code=$?
         
         echo ""
-        if [ $exit_code -eq 0 ]; then
-            echo -e "${GREEN}✓ Lệnh thực thi thành công${RESET}"
-        else
+        if [ $exit_code -ne 0 ]; then
             echo -e "${RED}✗ Lệnh thực thi thất bại (Exit code: $exit_code)${RESET}"
         fi
-        echo ""
         
         return 0
     fi

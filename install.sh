@@ -52,6 +52,29 @@ chmod +x "$INSTALL_DIR"/tools/*.sh 2>/dev/null || true
 chmod +x "$INSTALL_DIR"/tools/*/*.sh 2>/dev/null || true
 chmod +x "$INSTALL_DIR"/tools/*/*.py 2>/dev/null || true
 
+# Kiểm tra và thiết lập GEMINI_API_KEY
+ENV_FILE="$INSTALL_DIR/.env"
+if [ ! -f "$ENV_FILE" ] || ! grep -q "^GEMINI_API_KEY=" "$ENV_FILE" 2>/dev/null; then
+    echo -e "${YELLOW}⚠️  Chưa thiết lập GEMINI_API_KEY${RESET}"
+    echo -e "${BLUE}Để sử dụng moibash, bạn cần cung cấp Gemini API Key từ Google AI Studio.${RESET}"
+    echo -e "${BLUE}Lấy key tại: ${CYAN}https://makersuite.google.com/app/apikey${RESET}"
+    echo ""
+    echo -ne "${GREEN}Nhập GEMINI_API_KEY của bạn: ${RESET}"
+    read -r GEMINI_API_KEY
+    
+    if [ -z "$GEMINI_API_KEY" ]; then
+        echo -e "${RED}❌ Lỗi: API Key không được để trống!${RESET}"
+        exit 1
+    fi
+    
+    # Tạo hoặc cập nhật .env file
+    echo "GEMINI_API_KEY='$GEMINI_API_KEY'" > "$ENV_FILE"
+    echo -e "${GREEN}✅ Đã lưu API Key vào $ENV_FILE${RESET}"
+    echo ""
+else
+    echo -e "${GREEN}✅ GEMINI_API_KEY đã được thiết lập${RESET}"
+fi
+
 # Xóa symlink cũ nếu tồn tại
 if [ -L "$SYMLINK_PATH" ] || [ -f "$SYMLINK_PATH" ]; then
     echo -e "${YELLOW}⚠️  Phát hiện symlink/file cũ tại $SYMLINK_PATH${RESET}"
