@@ -32,3 +32,6 @@ test_*.sh
 *.run
 __pycache__/
 *.pyc
+
+# Update check files
+.last_update_check

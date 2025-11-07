@@ -93,7 +93,10 @@ check_for_updates() {
         fi
     fi
     
-    # Check for updates silently
+    # Show checking message
+    echo -e "${BLUE}🔍 Đang kiểm tra phiên bản mới nhất...${RESET}"
+    
+    # Check for updates
     cd "$SCRIPT_DIR" 2>/dev/null || return
     git fetch origin main 2>/dev/null || return
     
@@ -101,7 +104,10 @@ check_for_updates() {
     REMOTE=$(git rev-parse origin/main 2>/dev/null)
     
     if [ "$LOCAL" != "$REMOTE" ]; then
-        echo -e "${YELLOW}⚠️  New version available! Run ${CYAN}moibash --update${YELLOW} to update.${RESET}"
+        echo -e "${YELLOW}⚠️  Có phiên bản mới! Chạy ${CYAN}moibash --update${YELLOW} để cập nhật.${RESET}"
+        echo ""
+    else
+        echo -e "${GREEN}✅ Bạn đang sử dụng phiên bản mới nhất!${RESET}"
         echo ""
     fi
     
@@ -111,30 +117,51 @@ check_for_updates() {
 
 # Function to perform update
 perform_update() {
-    echo -e "${CYAN}${BOLD}🔄 Updating moibash...${RESET}"
+    echo -e "${CYAN}${BOLD}🔄 Đang cập nhật moibash...${RESET}"
+    echo ""
     
     if [ ! -d "$SCRIPT_DIR/.git" ]; then
-        echo -e "${RED}❌ Not a git repository. Cannot auto-update.${RESET}"
-        echo -e "${YELLOW}Please reinstall: ${CYAN}curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | bash${RESET}"
+        echo -e "${RED}❌ Không phải là git repository. Không thể tự động cập nhật.${RESET}"
+        echo -e "${YELLOW}Vui lòng cài đặt lại: ${CYAN}curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | bash${RESET}"
         exit 1
     fi
     
     cd "$SCRIPT_DIR"
     
+    # Check if there are updates
+    echo -e "${BLUE}🔍 Kiểm tra phiên bản mới...${RESET}"
+    git fetch origin main 2>/dev/null
+    
+    LOCAL=$(git rev-parse HEAD 2>/dev/null)
+    REMOTE=$(git rev-parse origin/main 2>/dev/null)
+    
+    if [ "$LOCAL" = "$REMOTE" ]; then
+        echo -e "${GREEN}✅ Bạn đang sử dụng phiên bản mới nhất!${RESET}"
+        echo ""
+        exit 0
+    fi
+    
+    echo -e "${YELLOW}📦 Tìm thấy phiên bản mới!${RESET}"
+    
     # Stash any local changes
-    git stash push -m "Auto-stash before update" 2>/dev/null
+    if ! git diff-index --quiet HEAD --; then
+        echo -e "${BLUE}💾 Lưu tạm các thay đổi local...${RESET}"
+        git stash push -m "Auto-stash before update" 2>/dev/null
+    fi
     
     # Pull latest changes
-    echo -e "${BLUE}Pulling latest changes...${RESET}"
+    echo -e "${BLUE}⬇️  Đang tải phiên bản mới...${RESET}"
     if git pull origin main; then
-        echo -e "${GREEN}✅ Updated successfully!${RESET}"
-        echo -e "${BLUE}Restarting moibash...${RESET}"
+        echo ""
+        echo -e "${GREEN}✅ Cập nhật thành công!${RESET}"
+        echo -e "${BLUE}🔄 Đang khởi động lại moibash...${RESET}"
         echo ""
         # Restart moibash
         exec "$SCRIPT_DIR/moibash.sh"
     else
-        echo -e "${RED}❌ Update failed!${RESET}"
-        echo -e "${YELLOW}Try manual update: cd $SCRIPT_DIR && git pull${RESET}"
+        echo ""
+        echo -e "${RED}❌ Cập nhật thất bại!${RESET}"
+        echo -e "${YELLOW}Thử cập nhật thủ công: ${CYAN}cd $SCRIPT_DIR && git pull${RESET}"
         exit 1
     fi
 }
