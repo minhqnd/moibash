@@ -225,8 +225,8 @@ execute_tool() {
             if [ -f "$TOOLS_DIR/filesystem/function_call.py" ]; then
                 # Export PWD để Python script có thể đọc
                 export MOIBASH_USER_PWD="$PWD"
-                # Export chat history file path
-                export MOIBASH_CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
+                # Export chat history file path (sử dụng PID từ main process)
+                export MOIBASH_CHAT_HISTORY="$SCRIPT_DIR/chat_history_${MOIBASH_PID:-$$}.txt"
                 "$TOOLS_DIR/filesystem/function_call.py" "$message"
             else
                 echo "❌ Filesystem agent chưa được cài đặt"

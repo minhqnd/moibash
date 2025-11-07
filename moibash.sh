@@ -73,6 +73,9 @@ check_and_setup_api_key() {
 # File lưu lịch sử chat (tạm thời trong session)
 CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
 
+# Export PID để các subprocess sử dụng
+export MOIBASH_PID="$$"
+
 # Version
 VERSION="1.1.0"
 

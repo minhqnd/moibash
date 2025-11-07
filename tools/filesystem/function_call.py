@@ -69,6 +69,7 @@ You are a CODE AGENT - an intelligent programming assistant with file system acc
 - **Path Resolution**: Relative paths are resolved from working directory
 - **Confirmation**: System handles confirmations automatically - DO NOT ask user again
 - **Chat History**: You have access to previous conversation context - USE IT to understand what files/tasks user is referring to
+ -IMPORTANT: **No duplicate plain-text confirmations**: Do NOT ask extra yes/no questions to the user after listing files or operations (e.g. "Do you want to delete all?", "Do you want to run it?"). The system confirmation UI (the CONFIRM ACTION box) is the single source of confirmation; rely on it.
 
 ## Core Capabilities
 1. **Read & Analyze**: Understand codebase structure, dependencies, patterns
@@ -84,6 +85,11 @@ You are a CODE AGENT - an intelligent programming assistant with file system acc
 - When user says "chạy với tham số..." / "run with argument X" → Check history for which file they're talking about
 - When user says "that file" / "file đó" / "it" → Look in history to identify the file
 - Example: If previous message discussed `prime_sum.py`, and user says "chạy với tham số 50", run `prime_sum.py` with arg 50
+ - If the user did NOT name a file but intent implies an action (run/read/delete/etc), DO NOT ask for the filename: automatically search the working directory for likely candidates and act.
+     - list all files in working directory and pick best match based on keywords from conversation
+     - If a single good match is found, proceed with the action. If multiple matches, pick the best by the heuristic and proceed (do not prompt the user). Log which file was chosen in the confirmation UI.
+     - For destructive actions (delete/update/rename), still show the CONFIRM ACTION UI (system confirmation) but do NOT ask additional plain-text yes/no questions.
+     - Always resolve and use absolute paths for any file operation.
 
 ### 2. Complete Task Fully
 - **ALWAYS complete the ENTIRE user request** - do NOT stop halfway
@@ -783,14 +789,16 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     if action == "create_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        lines.append(f"[CREATE] {safe_path}")
+        # Colorize tag like [DELETE]
+        lines.append(f"{GREEN}{BOLD}[CREATE]{RESET} {safe_path}")
         content = sanitize_for_display(details.get('content', ''), 50)
         lines.append(f"  Content: {content}")
     elif action == "update_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
         mode = details.get('mode', 'overwrite')
-        lines.append(f"[UPDATE] {safe_path}")
+        # Colorize tag like [DELETE]
+        lines.append(f"{YELLOW}{BOLD}[UPDATE]{RESET} {safe_path}")
         lines.append(f"  Mode: {mode}")
         
         # Show diff preview if file exists and we have new content
@@ -851,21 +859,21 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     elif action == "delete_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        lines.append(f"[DELETE] {safe_path}")
+        lines.append(f"{RED}{BOLD}[DELETE]{RESET} {safe_path}")
     elif action == "rename_file":
         old_path = sanitize_for_display(details.get('old_path', ''), 60)
         new_path = sanitize_for_display(details.get('new_path', ''), 60)
-        lines.append("[RENAME]")
+        lines.append(f"{MAGENTA}{BOLD}[RENAME]{RESET}")
         lines.append(f"  From: {old_path}")
         lines.append(f"  To: {new_path}")
     elif action == "shell":
         shell_action = details.get('action', '')
         if shell_action == "command":
             command = sanitize_for_display(details.get('command', ''), 60)
-            lines.append(f"[SHELL] {command}")
+            lines.append(f"{GRAY}{BOLD}[SHELL]{RESET} {command}")
         elif shell_action == "file":
             file_path = sanitize_for_display(details.get('file_path', ''), 60)
-            lines.append(f"[EXEC] {file_path}")
+            lines.append(f"{GRAY}{BOLD}[EXEC]{RESET} {file_path}")
             if details.get('args'):
                 args = sanitize_for_display(details.get('args', ''), 50)
                 lines.append(f"  Args: {args}")
