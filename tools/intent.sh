@@ -21,13 +21,14 @@ fi
 # System instruction để phân loại intent
 SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi của user vào 1 trong 6 loại:
 
-1. filesystem: BẤT KỲ YÊU CẦU NÀO về thao tác với file/folder trên hệ thống
+1. filesystem: BẤT KỲ YÊU CẦU NÀO về thao tác với file/folder trên hệ thống, coding, sửa file...
    - Tạo file: 'tạo file', 'create file', 'viết file'
-   - Đọc file: 'đọc file', 'xem file', 'hiển thị nội dung'
+   - Đọc file: 'đọc file', 'xem file', 'hiển thị nội dung', 'file này có gì', 'nội dung file', 'file có chức năng gì'
    - Sửa file: 'sửa file', 'đổi tên file', 'rename', 'chỉnh sửa'
    - Xóa file: 'xóa file', 'delete file', 'remove'
    - Chạy code: 'chạy file', 'thực thi', 'run code', 'execute'
    - Liệt kê: 'list file', 'bao nhiêu file', 'đếm file', 'tìm file'
+   - Phân tích: 'phân tích file', 'analyze', 'file làm gì', 'chức năng của file'
 
 2. calendar: BẤT KỲ YÊU CẦU NÀO về lịch, lịch trình, sự kiện, cuộc họp, hẹn gặp
    - Xem lịch: 'lịch trình hôm nay', 'lịch tuần này', 'có hẹn gì không'
@@ -46,8 +47,9 @@ SYSTEM_INSTRUCTION="Bạn là một intent classifier. Phân loại câu hỏi c
 6. chat: Các câu hỏi thông thường khác, trò chuyện, hỏi đáp kiến thức chung
 
 QUAN TRỌNG: 
-- Ưu tiên filesystem nếu có từ khóa: file, folder, tạo, xóa, sửa, đổi tên, chạy, execute, list, đếm, tìm kiếm file
+- Ưu tiên filesystem nếu có từ khóa: file, folder, tạo, xóa, sửa, đổi tên, chạy, execute, list, đếm, tìm kiếm file, chức năng, phân tích, nội dung
 - Ưu tiên calendar nếu có từ khóa: lịch, lịch trình, event, họp, hẹn, cuộc họp, appointment, meeting, schedule
+- Câu hỏi về 'file này', 'file đó', 'chức năng file' → filesystem
 
 CHỈ TRẢ VỀ MỘT TRONG SÁU TỪ SAU: filesystem, calendar, weather, image_create, google_search, chat
 KHÔNG GIẢI THÍCH GÌ CẢ, CHỈ TRẢ VỀ ĐÚNG MỘT TỪ KHÓA"

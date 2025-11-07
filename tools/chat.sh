@@ -18,8 +18,54 @@ if [ -z "$USER_MESSAGE" ]; then
     exit 1
 fi
 
+# Tìm file chat history (file mới nhất với pattern chat_history_*.txt)
+CHAT_HISTORY_FILE=""
+if [ -f "$SCRIPT_DIR/../chat_history_$$.txt" ]; then
+    CHAT_HISTORY_FILE="$SCRIPT_DIR/../chat_history_$$.txt"
+elif ls "$SCRIPT_DIR/../chat_history_"*.txt 1> /dev/null 2>&1; then
+    # Lấy file mới nhất nếu không tìm thấy file với PID hiện tại
+    CHAT_HISTORY_FILE=$(ls -t "$SCRIPT_DIR/../chat_history_"*.txt | head -1)
+fi
+
 # Escape message
 escaped_message=$(echo "$USER_MESSAGE" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+
+# Build chat history context cho API (không dùng Python)
+HISTORY_CONTEXT=""
+if [ -f "$CHAT_HISTORY_FILE" ]; then
+    # Đọc lịch sử chat và build context
+    # Lấy 20 dòng cuối cùng để tránh context quá dài
+    HISTORY_LINES=""
+    while IFS= read -r line; do
+        # Parse format: [timestamp] ROLE: message
+        if [[ "$line" =~ ^\[.*\][[:space:]]USER:[[:space:]](.+)$ ]]; then
+            msg="${BASH_REMATCH[1]}"
+            # Escape đúng cách cho JSON
+            escaped_msg=$(echo "$msg" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            if [ -z "$HISTORY_LINES" ]; then
+                HISTORY_LINES="USER: $escaped_msg"
+            else
+                HISTORY_LINES="$HISTORY_LINES | USER: $escaped_msg"
+            fi
+        elif [[ "$line" =~ ^\[.*\][[:space:]]moiBash:[[:space:]](.+)$ ]]; then
+            msg="${BASH_REMATCH[1]}"
+            escaped_msg=$(echo "$msg" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            if [ -z "$HISTORY_LINES" ]; then
+                HISTORY_LINES="ASSISTANT: $escaped_msg"
+            else
+                HISTORY_LINES="$HISTORY_LINES | ASSISTANT: $escaped_msg"
+            fi
+        fi
+    done < <(tail -20 "$CHAT_HISTORY_FILE")
+    HISTORY_CONTEXT="$HISTORY_LINES"
+fi
+
+# Build context message với history
+CONTEXT_MESSAGE="$escaped_message"
+if [ -n "$HISTORY_CONTEXT" ]; then
+    escaped_history=$(echo "$HISTORY_CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    CONTEXT_MESSAGE="[CHAT HISTORY]\\n$escaped_history\\n\\n[CURRENT MESSAGE]\\n$escaped_message"
+fi
 
 # System instruction
 SYSTEM_INSTRUCTION="You are Moibash Agent, an intelligent AI assistant integrated into the Moibash system. Moibash is a comprehensive AI-powered terminal application that provides natural language interfaces for various productivity tasks.
@@ -40,6 +86,7 @@ Response Guidelines:
 - Explain complex concepts in simple terms when needed
 - Ask clarifying questions when user intent is unclear
 - Use markdown formatting for better readability
+- **IMPORTANT**: When you see [CHAT HISTORY] at the beginning of the message, use it to understand the conversation context. The current user message will be under [CURRENT MESSAGE]. Refer to previous messages when relevant to provide contextual responses.
 
 When users ask about system capabilities or need help with specific features, provide accurate information about available tools and how to use them effectively."
 
@@ -49,7 +96,7 @@ response=$(curl -s -X POST \
     -H 'Content-Type: application/json' \
     -d "{
       \"contents\": [{
-        \"parts\": [{\"text\": \"$escaped_message\"}]
+        \"parts\": [{\"text\": \"$CONTEXT_MESSAGE\"}]
       }],
       \"systemInstruction\": {
         \"parts\": [{\"text\": \"$SYSTEM_INSTRUCTION\"}]

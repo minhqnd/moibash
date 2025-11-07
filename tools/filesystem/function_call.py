@@ -18,7 +18,17 @@ import re
 # Constants
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / "../../.env"
-HISTORY_FILE = SCRIPT_DIR / "../../chat_history_filesystem.txt"
+# Always use main chat history (shared across all tools)
+MAIN_HISTORY_FILE = os.environ.get('MOIBASH_CHAT_HISTORY', '')
+if MAIN_HISTORY_FILE:
+    HISTORY_FILE = Path(MAIN_HISTORY_FILE)
+else:
+    # Fallback: try to find the most recent chat history file
+    history_files = list(Path(SCRIPT_DIR / "../..").glob("chat_history_*.txt"))
+    if history_files:
+        HISTORY_FILE = max(history_files, key=lambda p: p.stat().st_mtime)
+    else:
+        HISTORY_FILE = None
 MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
 MAX_HISTORY_MESSAGES = 10  # Keep last 10 messages for context
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -118,6 +128,41 @@ When fixing bugs or modifying code:
 - Use grep/search for patterns before reading many files
 - Verify assumptions with tools, never guess
 
+### 5a. 🚨 Handle Ambiguous Requests Intelligently
+**When user request is not specific (e.g., "read the file", "analyze code", "run the script"):**
+
+**REQUIRED WORKFLOW:**
+1. **Search for relevant files** using `search_files()` or `list_files()`
+2. **Identify the most likely file** based on:
+   - File extension matching request (e.g., "Python file" → *.py)
+   - Recent context from conversation history
+   - File names suggesting functionality
+3. **Execute the action** on the identified file
+4. **Report what you did**: "Found and analyzed `main.py`..."
+
+**Examples:**
+```
+User: "Đọc file Python"
+→ search_files(".", "*.py")
+→ Found: test.py, main.py, utils.py
+→ read_file("main.py")  # Choose most likely main file
+→ Response: "Tìm thấy main.py, nội dung như sau: ..."
+
+User: "Tóm tắt file trong folder"
+→ list_files(".")
+→ Found: script.sh, config.json, README.md
+→ Prioritize code files over configs
+→ read_file("script.sh")
+→ Response: "Tìm thấy script.sh: ..."
+
+User: "Chạy file test"
+→ search_files(".", "*test*")
+→ Found: test.py
+→ shell("python test.py")
+```
+
+**DO NOT ask for clarification if you can infer the intent!**
+
 ### 6. Shell Execution Rules
 - Use `shell(action="command", command="...")` for direct execution
 - For testing: `python test.py`, NOT `shell(action="file", "test.py")`
@@ -161,13 +206,19 @@ echo "Stop with: kill $(cat /tmp/server.pid)"
 
 | Function | Purpose | Key Parameters |
 |----------|---------|----------------|
-| `read_file` | Read file content | `path` |
+| `read_file` | **Read file content** → 🚨 **MUST show content in response!** | `path` |
 | `create_file` | Create new file | `path`, `content` |
 | `update_file` | Update existing file | `path`, `content`, `mode` (overwrite/append) |
 | `delete_file` | Delete file/folder | `path` |
 | `rename_file` | Rename file/folder | `old_path`, `new_name` |
 | `list_files` | List directory contents | `path`, `recursive` |
 | `search_files` | Find files by pattern | `path`, `pattern`, `recursive` |
+
+### 🚨 Special Note for `read_file`:
+**After calling `read_file`, you MUST include the file content in your text response using a markdown code block!**
+- Example: "Nội dung file `test.py`:\n\n```python\nprint('hello')\n```"
+- DO NOT just say "I read the file" - users need to SEE the content!
+- This is a mandatory requirement for every `read_file` call.
 | `shell` | Execute command or script | `action` (command/file), `command` or `file_path` |
 
 ## Workflows
@@ -220,6 +271,57 @@ User: "analyze main.py"
 → Analyze: structure, patterns, issues
 → Report: Overview with insights
 ```
+
+### 🆕 Ambiguous Request Workflow
+```
+User: "Tóm tắt file Python" (không chỉ rõ tên file)
+→ search_files(".", "*.py", recursive=false)  # Tìm trong thư mục hiện tại
+→ Found: [main.py, test.py, utils.py]
+→ Choose most relevant: main.py (main file usually most important)
+→ read_file("main.py")
+→ Response: "Tìm thấy file main.py trong folder:
+   
+   ```python
+   [content]
+   ```
+   
+   Tóm tắt: ..."
+
+User: "Đọc file config" (không chỉ rõ extension)
+→ search_files(".", "*config*", recursive=false)
+→ Found: config.json, config.yaml
+→ Choose: config.json (JSON more common)
+→ read_file("config.json")
+→ Response: "Đã đọc config.json: ..."
+```
+
+**Priority Rules for File Selection:**
+1. Match file extension with request (Python → .py, Bash → .sh)
+2. Main/index files first (main.py, index.js, app.py)
+3. Files mentioned in recent chat history
+4. Alphabetically if all else equal
+
+### Read File Workflow
+```
+User: "show me content of script.sh" OR "đọc file script.sh"
+→ read_file("script.sh")
+→ Response MUST include:
+   
+   "Nội dung của file `script.sh`:
+   
+   ```bash
+   #!/bin/bash
+   echo 'Hello'
+   ```
+   
+   Đây là một bash script đơn giản in ra 'Hello'."
+```
+
+**🚨 CRITICAL:** 
+- **NEVER** respond with just "Tôi đã đọc file" 
+- **ALWAYS** show the actual file content in code block
+- **MUST** use proper syntax highlighting (```python, ```bash, ```javascript)
+- Think: "If I were the user, would I be able to see what's in the file from my response?"
 
 ## Testing Strategy
 
@@ -333,6 +435,37 @@ def process_data(data: list) -> dict:
 - Success: "✅ Found 5 files in tools directory"
 - Failure: "❌ Directory 'xyz' not found. Please check the name."
 - Be natural and friendly with Vietnamese users
+
+### 🚨 CRITICAL: Read File Response Format 🚨
+
+**MANDATORY RULE: After `read_file`, you MUST include the file content in a code block!**
+
+❌ **WRONG - Do NOT do this:**
+- "Tôi đã đọc file script.sh"
+- "File có 20 dòng"
+- "File chứa code Python"
+
+✅ **CORRECT - You MUST do this:**
+```
+Nội dung file `script.sh`:
+
+```bash
+#!/bin/bash
+echo "Hello World"
+```
+
+Đây là một bash script đơn giản in ra "Hello World".
+```
+
+**Rules:**
+1. **ALWAYS show file content** in code block (```language)
+2. **Use correct syntax highlighting** (.py → python, .js → javascript, .sh → bash)
+3. Show key parts + summary
+4. **Add brief explanation** after showing content
+
+**This is NON-NEGOTIABLE. Every `read_file` call MUST be followed by showing the content!**
+```
+**DO NOT just say "I read the file" - ALWAYS show what's inside!**
 
 ### Complete Task Confirmation
 - Final response MUST explicitly state that ALL steps are completed
@@ -626,8 +759,8 @@ def sanitize_for_display(text: str, max_length: int = 100) -> str:
     return text
 
 def load_chat_history() -> List[Dict]:
-    """Load chat history from file"""
-    if not HISTORY_FILE.exists():
+    """Load chat history from main chat history file (text format)"""
+    if not HISTORY_FILE or not HISTORY_FILE.exists():
         return []
     
     try:
@@ -635,22 +768,44 @@ def load_chat_history() -> List[Dict]:
             content = f.read().strip()
             if not content:
                 return []
-            return json.loads(content)
+            
+            # Parse text format: [HH:MM:SS] ROLE: message
+            history = []
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Parse: [HH:MM:SS] USER: message
+                if ' USER: ' in line:
+                    msg = line.split(' USER: ', 1)[1]
+                    history.append({
+                        "role": "user",
+                        "parts": [{"text": msg}]
+                    })
+                # Parse: [HH:MM:SS] moiBash: message
+                elif ' moiBash: ' in line:
+                    msg = line.split(' moiBash: ', 1)[1]
+                    history.append({
+                        "role": "model",
+                        "parts": [{"text": msg}]
+                    })
+            
+            # Keep only last MAX_HISTORY_MESSAGES pairs
+            if len(history) > MAX_HISTORY_MESSAGES * 2:
+                history = history[-(MAX_HISTORY_MESSAGES * 2):]
+            
+            return history
+                
     except Exception as e:
         debug_print(f"Error loading history: {e}")
         return []
 
 def save_chat_history(history: List[Dict]):
-    """Save chat history to file"""
-    try:
-        # Keep only last MAX_HISTORY_MESSAGES
-        if len(history) > MAX_HISTORY_MESSAGES * 2:  # *2 because we have user+model pairs
-            history = history[-(MAX_HISTORY_MESSAGES * 2):]
-        
-        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        debug_print(f"Error saving history: {e}")
+    """Save chat history - DISABLED: Now using shared main chat history"""
+    # Chat history is managed by moibash.sh, not by individual tools
+    # This function is kept for compatibility but does nothing
+    pass
 
 def get_terminal_width() -> int:
     """Get terminal width with fallback"""
@@ -709,9 +864,8 @@ def print_box(lines: List[str], title: str = None):
     
     print(border_bottom, file=sys.stderr, flush=True)
 
-def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
-    """Print tool call information with border and optional result"""
-    # Stop spinner if it's running (from router.sh)
+def stop_spinner():
+    """Stop the spinner if it's running (from router.sh)"""
     spinner_pid = os.environ.get('MOIBASH_SPINNER_PID')
     if spinner_pid:
         try:
@@ -721,6 +875,35 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
             subprocess.run(['kill', spinner_pid], stderr=subprocess.DEVNULL)
         except:
             pass
+
+def print_read_file_combined(file_path: str, result: Dict[str, Any]):
+    """Hiển thị read file action + result gộp trong 1 box duy nhất"""
+    # Stop spinner first
+    stop_spinner()
+    
+    filename = os.path.basename(file_path) if file_path else 'N/A'
+    
+    # Build display line
+    if isinstance(result, dict) and "content" in result:
+        content = result.get("content", "")
+        if isinstance(content, str):
+            content_lines = content.splitlines()
+            num_lines = len(content_lines)
+            display = f"{GREEN}✓{RESET} {CYAN}{BOLD}Read {num_lines} line(s){RESET}  {WHITE}{filename}{RESET}"
+        else:
+            display = f"{RED}✗{RESET} {CYAN}{BOLD}Read failed{RESET}  {WHITE}{filename}{RESET}"
+    elif isinstance(result, dict) and "error" in result:
+        display = f"{RED}✗{RESET} {CYAN}{BOLD}Error{RESET}  {WHITE}{filename}{RESET}: {result['error']}"
+    else:
+        display = f"{GREEN}✓{RESET} {CYAN}{BOLD}Read{RESET}  {WHITE}{filename}{RESET}"
+    
+    # Print single box
+    print_box([display], title=None)
+
+def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
+    """Print tool call information with border and optional result"""
+    # Stop spinner if it's running (from router.sh)
+    stop_spinner()
     
     BORDER_WIDTH = get_terminal_width()
     
@@ -760,7 +943,12 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
         display = f"{prefix} '{pattern}' in {dir_path}"
     elif func_name == "rename_file":
         display = f"{prefix} {args.get('old_path', '')} → {args.get('new_path', '')}"
-    elif func_name in ["read_file", "create_file", "update_file", "delete_file"]:
+    elif func_name == "read_file":
+        # Gộp action và result vào 1 box cho read_file
+        file_path = args.get('file_path', 'N/A')
+        filename = os.path.basename(file_path) if file_path != 'N/A' else 'N/A'
+        display = f"{prefix} {filename}"
+    elif func_name in ["create_file", "update_file", "delete_file"]:
         display = f"{prefix} {args.get('file_path', 'N/A')}"
     elif func_name == "execute_file":
         display = f"{prefix} {args.get('file_path', 'N/A')}"
@@ -1131,9 +1319,10 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     debug_print(f"Function: {func_name}")
     debug_print(f"Args: {json.dumps(args, ensure_ascii=False)}")
     
-    # BẮT BUỘC: LUÔN HIỆN TOOL HEADER TRƯỚC KHI THỰC THI
+    # BẮT BUỘC: LUÔN HIỆN TOOL HEADER TRƯỚC KHI THỰC THI (trừ read_file)
     # Điều này giúp kiểm soát và theo dõi mọi function call
-    print_tool_call(func_name, args)
+    if func_name != "read_file":
+        print_tool_call(func_name, args)
     
     # Execute function
     result = None
@@ -1142,7 +1331,8 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     if func_name == "read_file":
         file_path = args.get("file_path", "")
         result = call_filesystem_script("readfile", file_path)
-        print_tool_result(func_name, result)
+        # Gộp action + result vào 1 box cho read_file
+        print_read_file_combined(file_path, result)
         
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")

@@ -221,10 +221,12 @@ execute_tool() {
             ;;
         filesystem)
             # Gọi filesystem agent với Python function calling
-            # Pass user's current directory để agent biết context
+            # Pass user's current directory và chat history để agent biết context
             if [ -f "$TOOLS_DIR/filesystem/function_call.py" ]; then
                 # Export PWD để Python script có thể đọc
                 export MOIBASH_USER_PWD="$PWD"
+                # Export chat history file path
+                export MOIBASH_CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
                 "$TOOLS_DIR/filesystem/function_call.py" "$message"
             else
                 echo "❌ Filesystem agent chưa được cài đặt"
@@ -267,5 +269,8 @@ export MOIBASH_SPINNER_ACTIVE="$SPINNER_ACTIVE"
 # Thực thi tool tương ứng (tool sẽ tự dừng spinner khi cần)
 execute_tool "$intent" "$USER_MESSAGE"
 exit_code=$?
+
+# Dừng spinner trước khi thoát
+stop_spinner
 
 exit $exit_code

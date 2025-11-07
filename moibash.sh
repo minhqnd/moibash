@@ -424,8 +424,12 @@ process_input() {
         return 1
     fi
     
-    # Hiển thị tin nhắn của user
+    # Hiển thị tin nhắn của user (đã comment vì sẽ hiển thị ở main loop)
     # display_user_message "$user_input"
+    
+    # LƯU TIN NHẮN USER VÀO LỊCH SỬ
+    local timestamp=$(get_timestamp)
+    echo "[$timestamp] USER: $user_input" >> "$CHAT_HISTORY"
     
     # Kiểm tra xem có phải lệnh đặc biệt không
     if handle_command "$user_input"; then
