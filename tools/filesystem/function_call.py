@@ -79,6 +79,7 @@ You are a CODE AGENT - an intelligent programming assistant with file system acc
 - **NEVER ask for confirmation** - system handles this automatically
 - Execute user requests immediately without "Do you want...", "Are you sure..."
 - For bulk operations: execute each action sequentially, then report results
+- **Note**: `create_file` executes immediately without confirmation; other operations (update, delete, rename, shell) still require confirmation
 
 ### 2. Verification First
 - **ALWAYS verify before delete/rename**: Use `search_files()` or `list_files()` first
@@ -123,6 +124,38 @@ When fixing bugs or modifying code:
 - Combine commands with pipes: `ps aux | sort -nrk 4 | head -5`
 - For crontab: Use `(crontab -l 2>/dev/null; echo "schedule command") | crontab -`
 - Always verify system changes: `crontab -l`, `systemctl status`, etc.
+
+### 7. Background Process Rules (Web Servers, Long-Running Apps)
+**CRITICAL: Web servers/long-running processes MUST be handled specially!**
+
+**WRONG:** `python app.py &` → Shell blocks waiting for output
+**RIGHT:** Use this 3-step workflow:
+```bash
+# Step 1: Start server in background with output redirect
+python app.py > /tmp/server.log 2>&1 & echo $! > /tmp/server.pid
+
+# Step 2: Wait for server to start (2-3 seconds)
+sleep 3
+
+# Step 3: Test server with curl
+curl http://localhost:3000
+
+# Step 4: Show how to stop server
+echo "Server PID: $(cat /tmp/server.pid)"
+echo "Stop with: kill $(cat /tmp/server.pid)"
+```
+
+**Key Rules:**
+- ALWAYS redirect output: `> /tmp/app.log 2>&1 &`
+- ALWAYS save PID: `echo $! > /tmp/app.pid`
+- ALWAYS wait before testing: `sleep 2` or `sleep 3`
+- ALWAYS test with `curl` or similar
+- ALWAYS provide stop instructions to user
+
+**Examples:**
+- Flask: `python app.py > /tmp/flask.log 2>&1 & echo $! > /tmp/flask.pid; sleep 3; curl http://localhost:5000`
+- Node.js: `node server.js > /tmp/node.log 2>&1 & echo $! > /tmp/node.pid; sleep 3; curl http://localhost:3000`
+- Django: `python manage.py runserver > /tmp/django.log 2>&1 & echo $! > /tmp/django.pid; sleep 3; curl http://localhost:8000`
 
 ## Available Functions
 
@@ -345,7 +378,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "create_file",
-        "description": "Tạo file mới với nội dung. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
+        "description": "Tạo file mới với nội dung. Thực thi ngay lập tức không cần xác nhận.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -1133,8 +1166,7 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         
     # Functions cần confirmation - confirm sau đó thực thi và hiển thị result
     elif func_name == "create_file":
-        if not get_confirmation(func_name, args):
-            return {"error": "User cancelled", "cancelled": True}
+        # Không cần confirmation cho create_file - thực thi ngay
         file_path = args.get("file_path", "")
         content = args.get("content", "")
         result = call_filesystem_script("createfile", file_path, content)
