@@ -199,20 +199,23 @@ curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | b
 
 Script sẽ tự động:
 - ✅ Kiểm tra yêu cầu hệ thống (Bash, Python 3.6+, curl, git, pip3)
-- ✅ Tải xuống moibash từ GitHub
-- ✅ Cài đặt vào `~/.moibash`
+- ✅ Tải xuống moibash từ GitHub vào `~/.moibash`
 - ✅ Tạo symlink để chạy từ bất kỳ đâu
-- ✅ Thiết lập GEMINI_API_KEY
 - ✅ Cấu hình quyền thực thi
 
-Sau khi cài đặt xong, chỉ cần gõ:
+Sau khi cài đặt xong, chạy moibash lần đầu:
+
 ```bash
 moibash
 ```
 
+**Moibash sẽ tự động hỏi API key ngay lần chạy đầu tiên!** 🎉
+
+📖 **Xem hướng dẫn chi tiết: [API_KEY_SETUP.md](API_KEY_SETUP.md)**
+
 ### 🔧 Cài đặt cục bộ (Local Install)
 
-Nếu bạn đã clone repository:
+Nếu bạn muốn clone repository:
 
 ```bash
 # Clone repository
@@ -221,6 +224,9 @@ cd moibash
 
 # Chạy script cài đặt
 ./install.sh
+
+# Chạy moibash - sẽ tự động hỏi API key nếu chưa có
+moibash
 ```
 
 Script sẽ tự động kiểm tra và cài đặt tương tự remote install.

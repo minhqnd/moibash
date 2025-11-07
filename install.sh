@@ -248,24 +248,14 @@ chmod +x "$INSTALL_DIR"/tools/*/*.py 2>/dev/null || true
 echo -e "${GREEN}✅ Permissions set${RESET}"
 echo ""
 
-# Setup GEMINI_API_KEY
+# Create empty .env file if not exists
 ENV_FILE="$INSTALL_DIR/.env"
-echo -e "${YELLOW}⚠️  GEMINI API KEY REQUIRED${RESET}"
-echo -e "${BLUE}To use moibash, you need a Gemini API Key from Google AI Studio.${RESET}"
-echo -e "${CYAN}Get your key at: ${MAGENTA}https://makersuite.google.com/app/apikey${RESET}"
-echo ""
-echo -ne "${GREEN}Enter your GEMINI_API_KEY: ${RESET}"
-read -r GEMINI_API_KEY
-
-if [ -z "$GEMINI_API_KEY" ]; then
-    echo -e "${RED}❌ API Key cannot be empty!${RESET}"
-    echo -e "${YELLOW}You can set it later by editing: $ENV_FILE${RESET}"
-    echo "GEMINI_API_KEY=''" > "$ENV_FILE"
-else
-    echo "GEMINI_API_KEY='$GEMINI_API_KEY'" > "$ENV_FILE"
-    echo -e "${GREEN}✅ API Key saved to $ENV_FILE${RESET}"
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${BLUE}📝 Creating .env file...${RESET}"
+    touch "$ENV_FILE"
+    echo -e "${GREEN}✅ Created${RESET}"
+    echo ""
 fi
-echo ""
 
 # Create symlink
 SUDO=""
@@ -303,9 +293,11 @@ if [ -L "$SYMLINK_PATH" ] && [ -x "$INSTALL_DIR/moibash.sh" ]; then
     echo -e "  • Start chatting: ${CYAN}moibash${RESET}"
     echo -e "  • Get help: ${CYAN}moibash --help${RESET}"
     echo -e "  • Update: ${CYAN}moibash --update${RESET} or ${CYAN}cd $INSTALL_DIR && git pull${RESET}"
-    echo -e "  • Uninstall: ${CYAN}rm -rf $INSTALL_DIR && sudo rm $SYMLINK_PATH${RESET}"
+    echo -e "  • Uninstall: ${CYAN}./install.sh --uninstall${RESET}"
     echo ""
-    echo -e "${YELLOW}⚠️  If you didn't set the API key, edit: ${CYAN}$ENV_FILE${RESET}"
+    echo -e "${YELLOW}⚠️  First run:${RESET}"
+    echo -e "  Moibash will ask for your GEMINI API KEY on first launch."
+    echo -e "  Get your free key at: ${MAGENTA}https://makersuite.google.com/app/apikey${RESET}"
     echo ""
     echo -e "${GREEN}${BOLD}Happy chatting! 🚀${RESET}"
     echo ""

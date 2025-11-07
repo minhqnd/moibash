@@ -22,6 +22,54 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || re
 # Đường dẫn đến agent
 ROUTER_SCRIPT="$SCRIPT_DIR/router.sh"
 
+# Đường dẫn đến .env file
+ENV_FILE="$SCRIPT_DIR/.env"
+
+# Hàm kiểm tra và setup API key
+check_and_setup_api_key() {
+    local api_key=""
+    
+    # Kiểm tra .env file có tồn tại không
+    if [ ! -f "$ENV_FILE" ]; then
+        echo -e "${YELLOW}⚠️  File .env không tồn tại!${RESET}"
+        echo -e "${BLUE}Tạo file .env mới...${RESET}"
+        touch "$ENV_FILE"
+    fi
+    
+    # Đọc API key từ .env
+    if [ -f "$ENV_FILE" ]; then
+        api_key=$(grep "^GEMINI_API_KEY=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d "'" | tr -d '"' | tr -d ' ')
+    fi
+    
+    # Kiểm tra API key có hợp lệ không
+    if [ -z "$api_key" ] || [ "$api_key" = "" ]; then
+        echo -e "${RED}${BOLD}❌ GEMINI API KEY chưa được thiết lập!${RESET}"
+        echo ""
+        echo -e "${YELLOW}Moibash cần Gemini API Key để hoạt động.${RESET}"
+        echo -e "${CYAN}Lấy API key miễn phí tại: ${MAGENTA}https://makersuite.google.com/app/apikey${RESET}"
+        echo ""
+        echo -e "${GREEN}Vui lòng nhập GEMINI API KEY của bạn:${RESET}"
+        echo -ne "${BLUE}${BOLD}➜${RESET} "
+        read -r user_api_key
+        
+        if [ -z "$user_api_key" ]; then
+            echo -e "${RED}❌ API Key không được để trống!${RESET}"
+            echo -e "${YELLOW}Thoát chương trình.${RESET}"
+            exit 1
+        fi
+        
+        # Lưu API key vào .env
+        echo "GEMINI_API_KEY='$user_api_key'" > "$ENV_FILE"
+        echo ""
+        echo -e "${GREEN}✅ Đã lưu API Key vào $ENV_FILE${RESET}"
+        echo -e "${BLUE}Bạn có thể thay đổi API key bất kỳ lúc nào bằng cách chỉnh sửa file này.${RESET}"
+        echo ""
+        
+        # Delay một chút để user đọc message
+        sleep 1
+    fi
+}
+
 # File lưu lịch sử chat (tạm thời trong session)
 CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
 
@@ -469,6 +517,8 @@ case "${1:-}" in
     "")
         # Không có arguments, check for updates first
         check_for_updates
+        # Check and setup API key if needed
+        check_and_setup_api_key
         ;;
     *)
         echo -e "${RED}❌ Lỗi: Tham số không hợp lệ: $1${RESET}"
