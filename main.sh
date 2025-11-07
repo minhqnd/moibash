@@ -150,7 +150,7 @@ display_user_message() {
 display_agent_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    echo -e "${MAGENTA}${BOLD}Agent:${RESET}"
+    echo -ne "${MAGENTA}${BOLD}Agent:${RESET} "
     parse_markdown "$message"
     # Lưu vào lịch sử
     echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
