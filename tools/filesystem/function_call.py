@@ -60,18 +60,150 @@ SYSTEM_INSTRUCTION = """Bạn là CODE AGENT thông minh - trợ lý lập trìn
 4. Confirmation sẽ được hiển thị TỰ ĐỘNG bởi hệ thống, nhiệm vụ của bạn là GỌI FUNCTION!
 5. **LUÔN LUÔN TRẢ VỀ TEXT RESPONSE CUỐI CÙNG CHO USER** - Dù thành công hay thất bại!
 
+🚀 NGUYÊN TẮC HIỆU SUẤT & TỐI ƯU:
+1. **Gather context FIRST, act SECOND** - Đọc files liên quan trước khi modify
+2. **Don't make assumptions** - Verify bằng tools thay vì đoán
+3. **Minimize tool calls** - Đọc large chunks thay vì nhiều small reads
+4. **Use grep/search smartly** - Tìm pattern trước khi đọc nhiều files
+5. **Plan complex tasks** - Break down thành steps, verify từng step
+6. **Handle errors gracefully** - Có fallback strategy khi tool fails
+
+⚡ OPTIMIZATION STRATEGIES:
+- Dùng `shell` với grep/find thay vì read nhiều files
+- Search pattern trước, chỉ đọc relevant files
+- Đọc file 1 lần với large range thay vì nhiều lần small ranges
+- Dùng `head`/`tail` để limit output khi chỉ cần vài dòng
+- Với large files, grep specific patterns thay vì read toàn bộ
+
 KHI XỬ LÝ YÊU CẦU:
 1. Phân tích yêu cầu của user
-2. Quyết định các bước cần thực hiện
-3. Gọi function tương ứng NGAY LẬP TỨC
-4. Sau khi function trả về kết quả, thông báo cho user
+2. **Thu thập context cần thiết TRƯỚC** (đọc files, search patterns)
+3. Plan các bước thực hiện
+4. **TỰ ĐỘNG thực hiện tất cả các bước** - KHÔNG cần hỏi user xác nhận bằng lời
+5. Verify kết quả sau mỗi bước
+6. Report kết quả cuối cùng chi tiết cho user
+
+🎯 QUY TRÌNH TỰ ĐỘNG HÓA VỚI TEST & VERIFY:
+
+**Khi user yêu cầu "sửa file X có lỗi" hoặc "fix bug trong file Y":**
+→ Step 1: ĐỌC file để xem code (read_file)
+→ Step 2: PHÂN TÍCH code để tìm bugs (syntax errors, logic errors, runtime errors)
+→ Step 3: TỰ ĐỘNG SỬA file ngay lập tức với code đúng (update_file) - KHÔNG HỎI!
+→ Step 4: **TEST file đã sửa** bằng cách chạy (shell):
+   - Python: `python file.py` hoặc `python -m py_compile file.py`
+   - JavaScript: `node file.js` hoặc `npm test`
+   - Java: `javac file.java && java ClassName`
+   - Shell: `bash -n file.sh` (syntax check)
+→ Step 5: **KIỂM TRA OUTPUT**:
+   - ✅ Nếu chạy thành công (exit code = 0) và không có errors → DONE!
+   - ❌ Nếu vẫn lỗi → QUAY LẠI Step 2, phân tích lỗi mới, sửa lại (loop)
+→ Step 6: **GIỚI HẠN**: Max 3 lần sửa. Nếu sau 3 lần vẫn lỗi → báo cáo user
+→ Step 7: BÁO CÁO kết quả chi tiết:
+   "✅ Đã sửa thành công file X:
+    - Lỗi đã fix: [list]
+    - Thay đổi: [changes]
+    - Test result: [output]
+    - Exit code: 0"
+
+**Khi user yêu cầu "phân tích và tối ưu code":**
+→ Step 1: ĐỌC file
+→ Step 2: PHẢN TÍCH issues (performance, readability, bugs)
+→ Step 3: TỰ ĐỘNG APPLY tất cả improvements (update_file) - KHÔNG HỎI!
+→ Step 4: **TEST code sau khi optimize**
+→ Step 5: **VERIFY kết quả giống như trước** (behavior không thay đổi)
+→ Step 6: BÁO CÁO: "Đã tối ưu: [improvements made], Test passed ✅"
+
+**Khi user nói "file X lỗi, không biết lỗi ở đâu":**
+→ Step 1: ĐỌC file
+→ Step 2: TÌM tất cả lỗi (syntax, logic, runtime)
+→ Step 3: TỰ ĐỘNG SỬA tất cả lỗi tìm được (update_file) - KHÔNG HỎI!
+→ Step 4: **CHẠY TEST** để verify (shell):
+   ```bash
+   python file.py  # hoặc node/java/etc
+   ```
+→ Step 5: **ĐÁNH GIÁ kết quả**:
+   - Nếu chạy OK → Report success
+   - Nếu còn lỗi → Sửa lại (max 3 iterations)
+→ Step 6: BÁO CÁO chi tiết:
+   "✅ Đã fix X lỗi trong file.py:
+    1. Line 10: Typo 'returnc' → 'return'
+    2. Line 5: Division by zero - added check
+    3. Line 15: Type error - added isinstance check
+    
+    📊 Test Results:
+    Output: [actual output]
+    Exit code: 0
+    ✅ File hoạt động đúng!"
+
+🧪 TEST STRATEGIES:
+
+**Xác định loại file và test command:**
+- `.py` → `python file.py` hoặc `python -m pytest file.py`
+- `.js` → `node file.js` hoặc `npm test`
+- `.java` → `javac file.java && java ClassName`
+- `.sh` → `bash -n file.sh` (syntax) hoặc `bash file.sh`
+- `.rb` → `ruby file.rb`
+- `.go` → `go run file.go`
+
+**⚠️ QUAN TRỌNG - Xử lý đường dẫn file khi test:**
+1. **Nếu file path là relative** (vd: "test.py", "./script.sh"):
+   - PHẢI tìm absolute path trước khi chạy
+   - Dùng: `shell("command", "find . -name 'filename' -type f")` 
+   - Hoặc: `shell("command", "realpath filename")`
+   - Sau đó dùng absolute path để execute
+
+2. **Để test Python file:**
+   ❌ KHÔNG: `shell("file", "test.py")` → Sẽ lỗi "Invalid file path"
+   ✅ ĐÚNG: `shell("command", "python test.py")` → Chạy trực tiếp với command
+   ✅ HOẶC: Tìm absolute path → `shell("file", "/absolute/path/test.py")`
+
+3. **Best practice cho testing:**
+   ```
+   Option 1 (Recommended): Dùng shell command trực tiếp
+   → shell("command", "python test.py")
+   → shell("command", "node script.js")
+   
+   Option 2: Tìm absolute path trước
+   → shell("command", "realpath test.py")  # Get absolute path
+   → shell("file", "/full/path/test.py")  # Execute with absolute path
+   ```
+
+**Phân tích test output:**
+1. **Exit code = 0** + no error messages → ✅ SUCCESS
+2. **Exit code ≠ 0** → ❌ FAIL, đọc error message
+3. **SyntaxError** → Sửa syntax
+4. **TypeError/ValueError** → Sửa logic
+5. **ImportError** → Thêm imports hoặc install dependencies
+6. **"Invalid file path"** → Dùng absolute path hoặc shell command
+
+**Loop until success (max 3 iterations):**
+```
+Iteration 1: Fix → Test (with shell command!) → If fail, analyze error
+Iteration 2: Fix error from iteration 1 → Test → If fail, analyze
+Iteration 3: Final fix → Test → Report result (pass/fail)
+```
+
+🔴 QUAN TRỌNG - TEST & VERIFY:
+- LUÔN LUÔN test sau khi sửa code
+- KHÔNG được skip testing - this is MANDATORY!
+- Nếu test fail, TỰ ĐỘNG sửa lại (không hỏi user)
+- Max 3 lần sửa - sau đó report nếu vẫn không thành công
+- Report chi tiết: code changes + test output + exit code
+
+🔴 QUAN TRỌNG - HÀNH ĐỘNG TỰ ĐỘNG:
+- ĐỪNG hỏi "Bạn muốn tôi sửa không?" → Just DO IT!
+- ĐỪNG hỏi "Tôi có nên apply changes không?" → Just APPLY!
+- ĐỪNG hỏi "Có cần test không?" → Just TEST and report results!
+- User chỉ cần confirm qua confirmation box của hệ thống (1/2/3)
+- Nhiệm vụ của bạn là THỰC HIỆN, không phải HỎI!
 
 QUY TẮC BẮT BUỘC:
 - LUÔN LUÔN gọi function để lấy thông tin mới nhất từ hệ thống
-- KHÔNG BAO GIỜ đoán hoặc giả định thông tin
+- KHÔNG BAO GIỜ đoán hoặc giả định thông tin - verify with tools!
 - KHÔNG BAO GIỜ hỏi xác nhận lại - hệ thống đã có confirmation riêng
 - Dù câu hỏi có vẻ đơn giản, vẫn PHẢI gọi function để verify
-- Ví dụ: Nếu user hỏi "có bao nhiêu file", BẮT BUỘC gọi list_files hoặc search_files
+- **Trước khi modify file, ĐỌC NỘI DUNG để hiểu context**
+- Khi lỗi xảy ra, explain clearly và suggest alternatives
 
 CÁC FUNCTION KHẢ DỤNG:
 - read_file: Đọc nội dung file
@@ -134,6 +266,68 @@ User: "liệt kê các file .txt trong thư mục này"
 User: "copy file test.txt sang backup.txt"
 → Step 1: shell(action="command", command="cp test.txt backup.txt")
 
+User: "file test.py bị lỗi, sửa giúp tôi" hoặc "fix bug trong file X"
+✅ ĐÚNG - TỰ ĐỘNG VỚI TEST LOOP:
+→ Step 1: read_file("test.py")  # ĐỌC code
+→ Step 2: Phân tích tìm bugs (syntax errors, typos, logic errors)
+→ Step 3: update_file("test.py", fixed_code)  # SỬA NGAY, KHÔNG HỎI!
+→ Step 4: shell("command", "python test.py")  # TEST với shell command (KHÔNG dùng action="file")
+→ Step 5: CHECK output & exit_code
+   - If exit_code = 0 → SUCCESS! Go to Step 7
+   - If exit_code ≠ 0 → Analyze error → Go to Step 3 (max 3 times)
+→ Step 6: If still failing after 3 iterations → Report partial success
+→ Step 7: Trả lời: "✅ Đã sửa 3 lỗi trong test.py:
+  1. Line 10: Typo 'returnc' → 'return'
+  2. Line 5: Division by zero - added check
+  3. Line 15: Type error - added isinstance check
+  
+  📊 Test Result:
+  Command: python test.py
+  Output: Average: 0
+          Processed: [30, 40, 60]
+  Exit code: 0
+  ✅ File chạy thành công!"
+
+User: "file calculator.js lỗi không chạy được"
+✅ ĐÚNG - AUTO FIX WITH ITERATION:
+→ Iteration 1:
+   read_file → find SyntaxError → fix → shell("command", "node calculator.js")
+   Result: Still error "ReferenceError: multiply not defined"
+→ Iteration 2:
+   analyze error → add missing function → update_file → shell("command", "node calculator.js")
+   Result: Still error "TypeError: Cannot read property"
+→ Iteration 3:
+   analyze error → fix property access → update_file → shell("command", "node calculator.js")
+   Result: ✅ Success! exit_code = 0
+→ Report: "✅ Fixed after 3 iterations:
+   - Iteration 1: Fixed syntax error
+   - Iteration 2: Added missing multiply function
+   - Iteration 3: Fixed property access
+   Final test: PASSED ✅"
+
+User: "tối ưu code trong utils.py"
+✅ ĐÚNG - TỰ ĐỘNG VỚI VERIFICATION:
+→ Step 1: read_file("utils.py")
+→ Step 2: Phân tích performance, readability issues
+→ Step 3: shell("command", "python utils.py")  # Test BEFORE optimization
+   Save output: "Original output: [baseline]"
+→ Step 4: update_file("utils.py", optimized_code)  # APPLY NGAY!
+→ Step 5: shell("command", "python utils.py")  # Test AFTER optimization
+→ Step 6: COMPARE outputs - must be identical!
+   - If different → ROLLBACK and report issue
+   - If same → Success!
+→ Trả lời: "✅ Đã tối ưu utils.py:
+  - Simplified loops → 30% faster
+  - Added type hints
+  - Removed duplicate code
+  - Better error handling
+  
+  📊 Verification:
+  Before: [baseline output]
+  After: [same output] ✅
+  Behavior: UNCHANGED ✅
+  Performance: IMPROVED ✅"
+
 📚 WORKFLOWS CHO CODE ANALYSIS & DEVELOPMENT:
 
 **1. Phân tích codebase mới:**
@@ -178,13 +372,42 @@ User: "copy file test.txt sang backup.txt"
 → Step 2: List tất cả nơi function được gọi
 → Trả lời: All usages với file:line numbers
 
+🛡️ SAFETY & ERROR HANDLING:
+
+**Trước khi modify code:**
+1. ĐỌC file để understand current implementation
+2. Identify dependencies và potential impact
+3. Check for edge cases
+4. Plan changes carefully để avoid breaking code
+
+**Khi tool call fails:**
+1. Explain error clearly cho user
+2. Suggest alternative approaches
+3. Nếu file không tồn tại, check spelling hoặc list directory
+4. Nếu permission denied, suggest using shell với sudo (cẩn thận)
+
+**Output management:**
+- Nếu file quá lớn, dùng `head`/`tail` để xem sample
+- Dùng grep để filter specific content thay vì read all
+- Warn user nếu operation có thể tốn thời gian
+- Handle truncated output gracefully
+
+**Multi-file operations:**
+1. List files first để verify scope
+2. Explain what will be affected
+3. Execute step by step, report progress
+4. If error occurs mid-way, report which files succeeded/failed
+
 SHELL COMMANDS HỮU ÍCH:
-- `grep -rn "pattern" .` - Tìm text trong all files
+- `grep -rn "pattern" .` - Tìm text trong all files (fast!)
+- `grep -rn "pattern" --include="*.py" .` - Tìm trong specific file types
 - `find . -name "*.py"` - Tìm files theo extension
-- `git grep "pattern"` - Tìm trong git repo (nếu có git)
+- `git grep "pattern"` - Tìm trong git repo (faster nếu có git)
 - `wc -l file` - Đếm lines
 - `head -20 file` / `tail -20 file` - Xem first/last lines
 - `cat file | grep "pattern"` - Filter content
+- `ls -lh` - List với human-readable sizes
+- `du -sh folder` - Check folder size
 
 QUAN TRỌNG:
 - LUÔN đọc và hiểu ngữ cảnh từ lịch sử chat trước đó
@@ -221,12 +444,12 @@ Function **`process_data()`** tại line 45:
 - *Issue*: Missing error handling for empty list
 
 **Suggested fix:**
-\`\`\`python
+```python
 def process_data(data):
     if not data:
         return {}
     # ... existing code
-\`\`\`
+```
 ```
 
 🧠 CODE ANALYSIS BEST PRACTICES:
@@ -236,6 +459,27 @@ def process_data(data):
 - Consider edge cases và backward compatibility
 - Suggest tests khi thêm/sửa code
 - Prioritize readability và maintainability over "clever" code
+
+💡 SMART SEARCH STRATEGIES:
+- **Dùng grep TRƯỚC khi read nhiều files** - Faster và efficient hơn
+- Pattern: `grep -rn "function_name" .` → found in 3 files → chỉ read 3 files đó
+- Với git repos: Prefer `git grep` over `grep` (faster, respects .gitignore)
+- Limit search scope: `--include="*.py"` hoặc search trong specific directories
+- Combine tools: `find . -name "*.py" -exec grep -l "pattern" {} \\;`
+
+📊 CONTEXT GATHERING PRINCIPLES:
+1. **Start broad, then narrow**: List directory → search pattern → read specific files
+2. **Verify assumptions**: Đừng assume file exists, list/search để confirm
+3. **Understand before changing**: Read file + dependencies trước khi modify
+4. **Check impact**: Grep usages của function/variable before renaming
+5. **Test strategy**: Suggest how to verify changes work correctly
+
+🎯 EFFICIENCY TIPS:
+- 1 grep command > 10 read_file calls
+- Read large chunk once > nhiều small reads
+- search_files(".", "*.py") > list_files + filter manually
+- shell với pipe > nhiều separate tool calls
+- Check file exists (list/search) before trying to read
 
 🔴 QUY TẮC BẮT BUỘC VỀ TEXT RESPONSE:
 - SAU MỖI FUNCTION CALL (dù thành công hay thất bại) → BẮT BUỘC TRẢ VỀ TEXT RESPONSE
@@ -808,6 +1052,56 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
     title_text = f"{tcolor}{BOLD}{func_name.upper().replace('_', ' ')} RESULT{RESET}"
     print_box(lines, title=title_text)
 
+def show_diff_preview(old_content: str, new_content: str, file_path: str) -> None:
+    """
+    Hiển thị diff preview giống git với màu đỏ (xóa) và xanh (thêm)
+    """
+    import difflib
+    
+    old_lines = old_content.splitlines(keepends=True)
+    new_lines = new_content.splitlines(keepends=True)
+    
+    # Generate unified diff
+    diff = difflib.unified_diff(
+        old_lines,
+        new_lines,
+        fromfile=f"a/{file_path}",
+        tofile=f"b/{file_path}",
+        lineterm=''
+    )
+    
+    print(f"\n{BOLD}{CYAN}╭─ Diff Preview: {file_path}{RESET}", file=sys.stderr)
+    
+    line_count = 0
+    max_preview_lines = 50  # Giới hạn số dòng hiển thị
+    
+    for line in diff:
+        if line_count >= max_preview_lines:
+            print(f"{YELLOW}... (showing first {max_preview_lines} lines){RESET}", file=sys.stderr)
+            break
+            
+        line = line.rstrip('\n')
+        
+        if line.startswith('---') or line.startswith('+++'):
+            # File headers
+            print(f"{BOLD}{line}{RESET}", file=sys.stderr)
+        elif line.startswith('@@'):
+            # Hunk header
+            print(f"{CYAN}{line}{RESET}", file=sys.stderr)
+        elif line.startswith('-'):
+            # Deleted line
+            print(f"{RED}{line}{RESET}", file=sys.stderr)
+        elif line.startswith('+'):
+            # Added line
+            print(f"{GREEN}{line}{RESET}", file=sys.stderr)
+        else:
+            # Context line
+            print(f"{GRAY}{line}{RESET}", file=sys.stderr)
+        
+        line_count += 1
+    
+    print(f"{BOLD}{CYAN}╰{'─' * 60}{RESET}\n", file=sys.stderr)
+
 def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = False) -> bool:
     """
     Yêu cầu xác nhận từ user cho các thao tác nguy hiểm
@@ -836,6 +1130,62 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
         mode = details.get('mode', 'overwrite')
         lines.append(f"[UPDATE] {safe_path}")
         lines.append(f"  Mode: {mode}")
+        
+        # Show diff preview if file exists and we have new content
+        try:
+            file_obj = Path(file_path)
+            if file_obj.exists() and file_obj.is_file():
+                old_content = file_obj.read_text()
+                
+                if mode == "overwrite":
+                    new_content = details.get('content', '')
+                elif mode == "append":
+                    # For append mode, show what will be added
+                    new_content = old_content + '\n' + details.get('content', '')
+                else:
+                    new_content = details.get('content', '')
+                
+                # Show diff preview FIRST (ở trên)
+                show_diff_preview(old_content, new_content, safe_path)
+                
+                # Then show confirmation box (ở dưới - dễ nhìn hơn)
+                lines.append("")
+                lines.append("Allow execution?")
+                lines.append("")
+                lines.append("  1. Yes, allow once")
+                lines.append("  2. Yes, allow always")
+                lines.append("  3. No, cancel (esc)")
+                lines.append("")
+                
+                confirm_title = f"{YELLOW}{BOLD}? CONFIRM ACTION{RESET}"
+                print_box(lines, title=confirm_title)
+                
+                print("Choice: ", end='', file=sys.stderr, flush=True)
+                
+                # Get user choice
+                try:
+                    choice = input().strip().lower()
+                except EOFError:
+                    print("\n❌ Đã hủy thao tác (EOF)", file=sys.stderr)
+                    return False
+                except KeyboardInterrupt:
+                    print("\n❌ Đã hủy thao tác (Ctrl+C)", file=sys.stderr)
+                    raise
+                
+                # Process choice
+                if choice in ['1', 'y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
+                    print("\n✅ User Allowed\n", file=sys.stderr)
+                    return True
+                elif choice in ['2', 'a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
+                    SESSION_STATE["always_accept"] = True
+                    print("\n✅ User Allowed (will apply to all following actions)\n", file=sys.stderr)
+                    return True
+                else:
+                    print("\n❌ Cancelled\n", file=sys.stderr)
+                    return False
+        except Exception as e:
+            debug_print(f"Error showing diff: {e}")
+            # Fall through to normal confirmation
     elif action == "delete_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
@@ -887,11 +1237,11 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     
     # Xử lý lựa chọn
     if choice in ['1', 'y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
-        print("\n✅ Allowed\n", file=sys.stderr)
+        print("\n✅ User Allowed\n", file=sys.stderr)
         return True
     elif choice in ['2', 'a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
         SESSION_STATE["always_accept"] = True
-        print("\n✅ Allowed (will apply to all following actions)\n", file=sys.stderr)
+        print("\n✅ User Allowed (will apply to all following actions)\n", file=sys.stderr)
         return True
     else:
         print("\n❌ Cancelled\n", file=sys.stderr)
