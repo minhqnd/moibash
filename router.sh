@@ -122,9 +122,16 @@ start_spinner() {
         {
             local frames="|/-\\"
             local i=0
+            local elapsed=0
+            local count=0
             while [ "$SPINNER_ACTIVE" -eq 1 ]; do
                 i=$(( (i + 1) % 4 ))
-                printf "\r%s %s" "$msg" "${frames:$i:1}" >&2
+                count=$((count + 1))
+                if [ $count -eq 10 ]; then
+                    elapsed=$((elapsed + 1))
+                    count=0
+                fi
+                printf "\r%s (%ds) %s" "$msg" "$elapsed" "${frames:$i:1}" >&2
                 sleep 0.1
             done
         } &
@@ -134,19 +141,28 @@ start_spinner() {
 }
 
 stop_spinner() {
-    if [ -n "$SPINNER_PID" ]; then
+    if [ -n "$SPINNER_PID" ] && [ "$SPINNER_ACTIVE" -eq 1 ]; then
         SPINNER_ACTIVE=0
         # Kết thúc tiến trình spinner nếu còn chạy
-        kill "$SPINNER_PID" 2>/dev/null
-        wait "$SPINNER_PID" 2>/dev/null
+        if kill -0 "$SPINNER_PID" 2>/dev/null; then
+            kill "$SPINNER_PID" 2>/dev/null
+            wait "$SPINNER_PID" 2>/dev/null
+        fi
         SPINNER_PID=""
         # Xoá dòng spinner
         printf "\r\033[K" >&2
     fi
 }
 
+# Cleanup function to be called on exit
+cleanup() {
+    stop_spinner
+    # Remove trap to avoid recursive calls
+    trap - EXIT INT TERM
+}
+
 # Đảm bảo spinner được tắt khi script kết thúc hoặc bị ngắt
-trap 'stop_spinner' EXIT INT TERM
+trap 'cleanup' EXIT INT TERM
 
 # Hàm kiểm tra API key
 check_api_key() {
@@ -241,11 +257,12 @@ start_spinner "$intent"
 # Debug: Hiển thị intent (có thể tắt sau)
 # echo "[Intent: $intent]" >&2
 
-# Thực thi tool tương ứng
+# Export spinner PID để tool có thể tắt nó
+export MOIBASH_SPINNER_PID="$SPINNER_PID"
+export MOIBASH_SPINNER_ACTIVE="$SPINNER_ACTIVE"
+
+# Thực thi tool tương ứng (tool sẽ tự dừng spinner khi cần)
 execute_tool "$intent" "$USER_MESSAGE"
 exit_code=$?
-
-# Dừng spinner khi đã có phản hồi
-stop_spinner
 
 exit $exit_code

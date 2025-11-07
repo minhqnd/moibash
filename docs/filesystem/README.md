@@ -9,9 +9,12 @@ Agent thông minh để thao tác với file và folder trên hệ thống.
 - ✅ **Cập nhật file**: Sửa nội dung file (ghi đè hoặc append)
 - ✅ **Xóa file/folder**: Xóa file hoặc folder (recursive)
 - ✅ **Đổi tên**: Đổi tên file hoặc folder
-- ✅ **Chạy file**: Thực thi script (Python, Bash, Node.js)
+- ✅ **Chạy lệnh shell**: Thực thi bất kỳ lệnh shell nào (ls, cat, cp, find, kill, v.v.)
+- ✅ **Chạy script file**: Thực thi script (Python, Bash, Node.js)
 - ✅ **Liệt kê**: List files và folders
 - ✅ **Tìm kiếm**: Tìm file theo pattern
+- ✅ **Ghi nhớ ngữ cảnh**: Hiểu và ghi nhớ lịch sử chat để xử lý các câu hỏi tiếp theo
+- ✅ **Hiển thị rõ ràng**: Hiển thị tool nào đang được gọi với border và format đẹp mắt
 
 ## An toàn
 
@@ -20,7 +23,7 @@ Agent có cơ chế **xác nhận** trước khi thực hiện các thao tác ng
 - Cập nhật file
 - Xóa file/folder
 - Đổi tên file/folder
-- Chạy file
+- Chạy lệnh shell hoặc script file
 
 ### Tùy chọn xác nhận
 
@@ -45,6 +48,17 @@ tạo file hello.py với nội dung hello world và chạy nó cho tôi
 đổi tên tất cả file có đuôi .exe thành .run
 tìm kiếm tất cả các file .exe trong folder và xoá đi cho tôi
 folder này đang có bao nhiêu file, bao nhiêu folder
+```
+
+### Ví dụ với ngữ cảnh (Context-aware)
+
+```
+➜ có file exe nào trong folder hiện tại và folder con không
+Agent: Có 2 file .exe: test.exe, tools/ok.exe
+
+➜ xóa cho tôi
+Agent: [Hiểu ngữ cảnh: xóa 2 file .exe vừa tìm được]
+      Đã xóa 2 file .exe thành công
 ```
 
 ### Trực tiếp (Testing)
@@ -111,14 +125,30 @@ folder này đang có bao nhiêu file, bao nhiêu folder
 
 ```
 filesystem/
-├── function_call.py    # Gemini function calling + confirmation
-├── filesystem.sh       # Actual file operations
+├── function_call.py    # Gemini function calling + confirmation + context
+├── shell.sh            # Unified shell execution (commands & scripts)
+├── createfile.sh       # Create file
+├── updatefile.sh       # Update file
+├── deletefile.sh       # Delete file
+├── renamefile.sh       # Rename file
+├── readfile.sh         # Read file
+├── listfiles.sh        # List files
+├── searchfiles.sh      # Search files
 └── README.md          # Documentation
 ```
 
 **Flow**:
 1. User yêu cầu → Intent classifier → Filesystem agent
-2. Function calling parse yêu cầu
-3. Yêu cầu confirmation (nếu cần)
-4. Thực thi thao tác
-5. Trả kết quả cho user
+2. Load chat history cho context
+3. Function calling parse yêu cầu (có context)
+4. Hiển thị tool đang được gọi (với border)
+5. Yêu cầu confirmation (nếu cần)
+6. Thực thi thao tác
+7. Save chat history
+8. Trả kết quả cho user
+
+**Cải tiến mới**:
+- ✅ Gộp `executefile.sh` và `processtool.sh` thành `shell.sh`
+- ✅ Chat history để hiểu ngữ cảnh
+- ✅ Hiển thị rõ ràng tool nào đang được gọi
+- ✅ Backward compatible với `execute_file` và `run_command`
