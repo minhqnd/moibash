@@ -17,16 +17,6 @@ MAGENTA='\033[0;35m'
 RESET='\033[0m'
 BOLD='\033[1m'
 
-# Màu sắc
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-RESET='\033[0m'
-BOLD='\033[1m'
-
 # Handle uninstall
 if [ "$1" = "--uninstall" ] || [ "$1" = "-u" ]; then
     echo -e "${RED}${BOLD}"
@@ -71,6 +61,31 @@ if [ "$1" = "--uninstall" ] || [ "$1" = "-u" ]; then
     echo ""
     echo -e "${GREEN}${BOLD}✅ Moibash uninstalled successfully!${RESET}"
     echo -e "${BLUE}Thanks for using moibash! 👋${RESET}"
+    echo ""
+    exit 0
+fi
+
+# Handle help
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo -e "${CYAN}${BOLD}Moibash Installation Script${RESET}"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Usage:${RESET}"
+    echo "  ./install.sh                    Install moibash locally"
+    echo "  curl ... install.sh | bash      Install moibash remotely"
+    echo "  ./install.sh --uninstall        Uninstall moibash"
+    echo "  ./install.sh --help             Show this help"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Description:${RESET}"
+    echo "  This script installs moibash with all dependencies."
+    echo "  It will check system requirements and guide you through setup."
+    echo ""
+    echo -e "${YELLOW}${BOLD}Requirements:${RESET}"
+    echo "  • Python 3.6+"
+    echo "  • pip3"
+    echo "  • curl"
+    echo "  • git"
+    echo ""
+    echo -e "${BLUE}Repository: ${MAGENTA}https://github.com/minhqnd/moibash${RESET}"
     echo ""
     exit 0
 fi
@@ -216,8 +231,6 @@ else
     echo -e "${GREEN}✅ Using local directory: $INSTALL_DIR${RESET}"
     echo ""
 fi
-
-# Check if moibash.sh exists
 
 # Check if moibash.sh exists
 if [ ! -f "$INSTALL_DIR/moibash.sh" ]; then
