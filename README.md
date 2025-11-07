@@ -187,7 +187,66 @@ Output: Hello World
 ...
 ```
 
-## 🚀 Cài đặt và thiết lập
+## 🚀 Cài đặt nhanh
+
+### Cài đặt đơn giản với symlink (Khuyến nghị)
+
+```bash
+# Clone repository
+git clone https://github.com/minhqnd/moibash.git
+cd moibash
+
+# Cấu hình API key
+cp .env.example .env
+# Chỉnh sửa .env và thêm GEMINI_API_KEY
+
+# Cài đặt (tạo symlink vào /usr/local/bin)
+./install.sh
+
+# Chạy từ bất kỳ đâu
+moibash
+```
+
+### Hoặc chạy trực tiếp (không cần symlink)
+
+```bash
+# Clone repository
+git clone https://github.com/minhqnd/moibash.git
+cd moibash
+
+# Cấp quyền thực thi
+chmod +x moibash.sh router.sh
+chmod +x tools/*.sh tools/*/*.sh
+
+# Cấu hình API key
+cp .env.example .env
+# Chỉnh sửa .env và thêm GEMINI_API_KEY
+
+# Chạy
+./moibash.sh
+```
+
+📖 **Xem [INSTALL.md](INSTALL.md) để biết chi tiết và troubleshooting**
+
+### Cập nhật
+
+```bash
+# Cách 1: Dùng command built-in
+moibash --update
+
+# Cách 2: Manual
+cd /path/to/moibash
+git pull origin main
+```
+
+### Gỡ cài đặt
+
+```bash
+cd /path/to/moibash
+./uninstall.sh
+```
+
+## 🚀 Chi tiết cài đặt và thiết lập
 
 ### Bước 1: Clone repository
 ```bash
@@ -195,29 +254,7 @@ git clone https://github.com/minhqnd/moibash.git
 cd moibash
 ```
 
-### Bước 2: Cấp quyền thực thi
-```bash
-chmod +x main.sh router.sh
-chmod +x tools/*.sh
-chmod +x tools/*/*.sh
-```
-
-### Bước 3: Cấu hình API keys
-
-Tạo file `.env`:
-```bash
-# Gemini API (bắt buộc)
-GEMINI_API_KEY='your-gemini-api-key-here'
-
-# Google Calendar (tùy chọn)
-GOOGLE_CLIENT_ID='your-client-id'
-GOOGLE_CLIENT_SECRET='your-client-secret'
-GOOGLE_REDIRECT_URI='urn:ietf:wg:oauth:2.0:oob'
-
-# Các API khác nếu cần
-```
-
-### Bước 4: Cài đặt dependencies
+### Bước 2: Cài đặt dependencies
 
 **Python 3** (cho một số agents):
 ```bash
@@ -237,9 +274,47 @@ sudo apt install curl
 brew install curl
 ```
 
+### Bước 3: Cấu hình API keys
+
+Tạo file `.env`:
+```bash
+cp .env.example .env
+```
+
+Chỉnh sửa `.env`:
+```bash
+# Gemini API (bắt buộc)
+GEMINI_API_KEY='your-gemini-api-key-here'
+
+# Google Calendar (tùy chọn)
+GOOGLE_CLIENT_ID='your-client-id'
+GOOGLE_CLIENT_SECRET='your-client-secret'
+GOOGLE_REDIRECT_URI='urn:ietf:wg:oauth:2.0:oob'
+
+# Các API khác nếu cần
+```
+
+Lấy Gemini API key: https://ai.google.dev/
+
+### Bước 4: Cài đặt symlink (Khuyến nghị)
+
+```bash
+./install.sh
+```
+
+Script sẽ:
+- Cấp quyền thực thi cho tất cả scripts
+- Tạo symlink `/usr/local/bin/moibash` → `moibash.sh`
+- Cho phép gọi `moibash` từ bất kỳ đâu
+
 ### Bước 5: Test hệ thống
 ```bash
-./main.sh
+# Nếu đã cài symlink
+moibash
+
+# Hoặc chạy trực tiếp
+./moibash.sh
+
 ➜ hello
 Agent: Xin chào! Tôi là Chat Agent...
 ```

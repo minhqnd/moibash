@@ -221,7 +221,10 @@ execute_tool() {
             ;;
         filesystem)
             # Gọi filesystem agent với Python function calling
+            # Pass user's current directory để agent biết context
             if [ -f "$TOOLS_DIR/filesystem/function_call.py" ]; then
+                # Export PWD để Python script có thể đọc
+                export MOIBASH_USER_PWD="$PWD"
                 "$TOOLS_DIR/filesystem/function_call.py" "$message"
             else
                 echo "❌ Filesystem agent chưa được cài đặt"
