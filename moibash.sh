@@ -115,17 +115,23 @@ clear_screen() {
 # Hàm hiển thị banner
 show_banner() {
     echo -e "${CYAN}${BOLD}"
-    echo -e "             _ ______             _     "
-    echo -e "            (_|____  \           | |    "
-    echo -e " ____   ___  _ ____)  ) ____  ___| | _  "
-    echo -e "|    \ / _ \| |  __  ( / _  |/___) || \ "
-    echo -e "| | | | |_| | | |__)  | ( | |___ | | | |"
-    echo -e "|_|_|_|\___/|_|______/ \_||_(___/|_| |_|"
-    echo -e "                                        "
-    echo -e "OSG Project hihi"
-    echo -e ""
+    echo -e "
+██╗  ███╗   ███╗ ██████╗ ██╗██████╗  █████╗ ███████╗██╗  ██╗
+╚██╗ ████╗ ████║██╔═══██╗██║██╔══██╗██╔══██╗██╔════╝██║  ██║
+ ╚██╗██╔████╔██║██║   ██║██║██████╔╝███████║███████╗███████║
+ ██╔╝██║╚██╔╝██║██║   ██║██║██╔══██╗██╔══██║╚════██║██╔══██║
+██╔╝ ██║ ╚═╝ ██║╚██████╔╝██║██████╔╝██║  ██║███████║██║  ██║
+╚═╝  ╚═╝     ╚═╝ ╚═════╝ ╚═╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝"
     echo -e "${RESET}"
-    echo -e "${GRAY}Gõ /help để xem danh sách lệnh${RESET}"
+    # echo -e "version: ${YELLOW}${VERSION}${RESET}"
+    echo -e "
+Mẹo để bắt đầu:
+1. Hỏi câu hỏi, sửa file hoặc chạy lệnh.
+2. Cụ thể để có kết quả tốt nhất.
+3. Tạo file MOIBASH.md để tùy chỉnh tương tác của bạn với MOIBASH.
+4. ${GREEN}${BOLD}/help${RESET} để xem danh sách lệnh
+5. ${GREEN}${BOLD}!<lệnh>${RESET} để chạy lệnh shell trực tiếp (ví dụ: ${GRAY}!ls -la${RESET})
+6. Thoát bằng ${GREEN}${BOLD}/exit${RESET} hoặc ${GREEN}${BOLD}/quit${RESET}"
     echo ""
 }
 
@@ -135,6 +141,9 @@ show_help() {
     echo -e "${CYAN}  /help${RESET}   - Hiển thị danh sách lệnh"
     echo -e "${CYAN}  /clear${RESET}  - Xóa màn hình và lịch sử chat"
     echo -e "${CYAN}  /exit, /quit${RESET}   - Thoát chương trình"
+    echo ""
+    echo -e "${YELLOW}${BOLD}💡 TÍNH NĂNG:${RESET}"
+    echo -e "${CYAN}  !<lệnh>${RESET} - Thực thi lệnh shell trực tiếp (ví dụ: ${GRAY}!ls -la${RESET})"
     echo ""
 }
 
@@ -190,14 +199,12 @@ display_agent_message() {
     parse_markdown "$message"
     # Lưu vào lịch sử
     echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
-    echo ""
 }
 
 # Hàm hiển thị lỗi
 display_error() {
     local message="$1"
     echo -e "${RED}${BOLD}❌ Lỗi:${RESET} $message"
-    echo ""
 }
 
 # Hàm hiển thị thông tin
@@ -287,6 +294,37 @@ process_input() {
         return 0
     fi
     
+    # Kiểm tra nếu bắt đầu bằng ! thì chạy lệnh shell trực tiếp
+    if [[ "$user_input" =~ ^! ]]; then
+        # Lấy lệnh (bỏ dấu ! ở đầu)
+        local shell_command="${user_input#!}"
+        
+        # Loại bỏ khoảng trắng đầu sau dấu !
+        shell_command=$(echo "$shell_command" | sed 's/^[[:space:]]*//')
+        
+        if [ -z "$shell_command" ]; then
+            display_error "Lệnh shell không được để trống!"
+            return 1
+        fi
+        
+        echo -e "${CYAN}${BOLD}$ ${shell_command}${RESET}"
+        echo ""
+        
+        # Thực thi lệnh shell
+        eval "$shell_command"
+        local exit_code=$?
+        
+        echo ""
+        if [ $exit_code -eq 0 ]; then
+            echo -e "${GREEN}✓ Lệnh thực thi thành công${RESET}"
+        else
+            echo -e "${RED}✗ Lệnh thực thi thất bại (Exit code: $exit_code)${RESET}"
+        fi
+        echo ""
+        
+        return 0
+    fi
+    
     # Gọi agent để xử lý
     local agent_response=$(call_agent "$user_input")
     
@@ -308,19 +346,37 @@ init_chat() {
     
     # Tin nhắn chào mừng từ agent
     display_agent_message "Xin chào! Tôi là **Chat Agent** rất *vui* được trò chuyện với bạn! 👋"
+    echo ""
 }
 
 # Hàm main loop
 main_loop() {
+    # Hiển thị path cho input đầu tiên (không có \n vì đã có echo "" ở trên)
+    local display_path="${SCRIPT_DIR/#$HOME/~}"
+    echo -e "${GRAY}╭─ $display_path${RESET}"
+    
     while true; do
         # Hiển thị prompt
-        echo -ne "${BLUE}${BOLD}➜${RESET} "
+        echo -ne "${GRAY}╰─${RESET} ${BLUE}${BOLD}➜${RESET} "
         
         # Đọc input từ user
         read -r user_input
         
+        # Di chuyển lên 2 dòng, xóa dòng ╭─, xuống 1 dòng, xóa dòng ╰─
+        echo -en "\033[1A\033[2K\r"  # Lên 1 dòng (đến ╰─), xóa dòng, về đầu dòng
+        echo -en "\033[1A\033[2K\r"  # Lên 1 dòng nữa (đến ╭─), xóa dòng, về đầu dòng
+        
+        # Hiển thị lại prompt với input của user
+        echo -e "${BLUE}${BOLD}➜${RESET} $user_input"
+        # Thêm dòng trống sau câu hỏi user
+        echo ""
+        
         # Xử lý input
         process_input "$user_input"
+        
+        # Sau khi xử lý xong, hiển thị path cho input tiếp theo
+        local display_path="${SCRIPT_DIR/#$HOME/~}"
+        echo -e "\n${GRAY}╭─ $display_path${RESET}"
     done
 }
 
