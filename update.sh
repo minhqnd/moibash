@@ -18,7 +18,7 @@ BOLD='\033[1m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${CYAN}${BOLD}╔════════════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}║       MOIBASH UPDATE SCRIPT           ║${RESET}"
+echo -e "${CYAN}${BOLD}║       MOIBASH UPDATE SCRIPT            ║${RESET}"
 echo -e "${CYAN}${BOLD}╚════════════════════════════════════════╝${RESET}"
 echo ""
 
