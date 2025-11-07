@@ -254,13 +254,7 @@ moibash --update
 ### Gỡ cài đặt
 
 ```bash
-# Nếu đã có repository local
-cd moibash
-./install.sh --uninstall
-
-# Hoặc xóa thủ công
-rm -rf ~/.moibash
-sudo rm /usr/local/bin/moibash
+moibash --uninstall
 ```
 
 ## 🚀 Chi tiết cài đặt và thiết lập

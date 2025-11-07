@@ -273,6 +273,7 @@ show_usage() {
     echo "  moibash --help        Hiển thị hướng dẫn sử dụng"
     echo "  moibash --version     Hiển thị phiên bản"
     echo "  moibash --update      Cập nhật từ GitHub"
+    echo "  moibash --uninstall   Gỡ cài đặt moibash"
     echo ""
     echo -e "${YELLOW}${BOLD}Trong chat:${RESET}"
     echo "  /help                 Danh sách lệnh"
@@ -282,6 +283,7 @@ show_usage() {
     echo -e "${YELLOW}${BOLD}Examples:${RESET}"
     echo "  moibash                           # Bắt đầu chat"
     echo "  moibash --update                  # Cập nhật phiên bản mới"
+    echo "  moibash --uninstall               # Gỡ cài đặt"
     echo ""
     echo -e "${BLUE}Repository:${RESET} https://github.com/minhqnd/moibash"
 }
@@ -494,6 +496,60 @@ cleanup() {
     exit 0
 }
 
+# Hàm uninstall
+uninstall_moibash() {
+    echo -e "${RED}${BOLD}"
+    echo '╔═══════════════════════════════════════════════════╗'
+    echo '║         MOIBASH UNINSTALLATION                    ║'
+    echo '╚═══════════════════════════════════════════════════╝'
+    echo -e "${RESET}"
+    
+    INSTALL_DIR="$HOME/.moibash"
+    SYMLINK_PATH="/usr/local/bin/moibash"
+    
+    # Detect if running from local install
+    if [ -f "$SCRIPT_DIR/moibash.sh" ]; then
+        INSTALL_DIR="$SCRIPT_DIR"
+    fi
+    
+    echo -e "${YELLOW}This will remove:${RESET}"
+    echo -e "  • Installation directory: ${CYAN}$INSTALL_DIR${RESET}"
+    echo -e "  • Symlink: ${CYAN}$SYMLINK_PATH${RESET}"
+    echo ""
+    echo -ne "${RED}Are you sure? (y/N): ${RESET}"
+    read -r response
+    
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo -e "${BLUE}Uninstallation cancelled.${RESET}"
+        exit 0
+    fi
+    
+    # Remove symlink
+    if [ -L "$SYMLINK_PATH" ] || [ -f "$SYMLINK_PATH" ]; then
+        echo -e "${BLUE}Removing symlink...${RESET}"
+        if [ -w "/usr/local/bin" ]; then
+            rm -f "$SYMLINK_PATH"
+        else
+            sudo rm -f "$SYMLINK_PATH"
+        fi
+        echo -e "${GREEN}✅ Removed symlink${RESET}"
+    fi
+    
+    # Remove installation directory
+    if [ -d "$INSTALL_DIR" ] && [ "$INSTALL_DIR" != "$HOME" ]; then
+        echo -e "${BLUE}Removing $INSTALL_DIR...${RESET}"
+        cd "$HOME"  # Move out of the directory before removing
+        rm -rf "$INSTALL_DIR"
+        echo -e "${GREEN}✅ Removed installation directory${RESET}"
+    fi
+    
+    echo ""
+    echo -e "${GREEN}${BOLD}✅ Moibash uninstalled successfully!${RESET}"
+    echo -e "${BLUE}Thanks for using moibash! 👋${RESET}"
+    echo ""
+    exit 0
+}
+
 # Bắt signal Ctrl+C
 trap cleanup SIGINT SIGTERM
 
@@ -513,6 +569,9 @@ case "${1:-}" in
         ;;
     --update|-u)
         perform_update
+        ;;
+    --uninstall)
+        uninstall_moibash
         ;;
     "")
         # Không có arguments, check for updates first

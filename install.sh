@@ -3,7 +3,6 @@
 # install.sh - Universal Installation Script for Moibash
 # Usage 1 (Remote): curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | bash
 # Usage 2 (Local):  ./install.sh
-# Usage 3 (Uninstall): ./install.sh --uninstall
 
 set -e  # Exit on error
 
@@ -17,54 +16,6 @@ MAGENTA='\033[0;35m'
 RESET='\033[0m'
 BOLD='\033[1m'
 
-# Handle uninstall
-if [ "$1" = "--uninstall" ] || [ "$1" = "-u" ]; then
-    echo -e "${RED}${BOLD}"
-    echo '╔═══════════════════════════════════════════════════╗'
-    echo '║         MOIBASH UNINSTALLATION                    ║'
-    echo '╚═══════════════════════════════════════════════════╝'
-    echo -e "${RESET}"
-    
-    INSTALL_DIR="$HOME/.moibash"
-    SYMLINK_PATH="/usr/local/bin/moibash"
-    
-    echo -e "${YELLOW}This will remove:${RESET}"
-    echo -e "  • Installation directory: ${CYAN}$INSTALL_DIR${RESET}"
-    echo -e "  • Symlink: ${CYAN}$SYMLINK_PATH${RESET}"
-    echo ""
-    echo -ne "${RED}Are you sure? (y/N): ${RESET}"
-    read -r response
-    
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}Uninstallation cancelled.${RESET}"
-        exit 0
-    fi
-    
-    # Remove installation directory
-    if [ -d "$INSTALL_DIR" ]; then
-        echo -e "${BLUE}Removing $INSTALL_DIR...${RESET}"
-        rm -rf "$INSTALL_DIR"
-        echo -e "${GREEN}✅ Removed${RESET}"
-    fi
-    
-    # Remove symlink
-    if [ -L "$SYMLINK_PATH" ] || [ -f "$SYMLINK_PATH" ]; then
-        echo -e "${BLUE}Removing symlink...${RESET}"
-        if [ -w "/usr/local/bin" ]; then
-            rm -f "$SYMLINK_PATH"
-        else
-            sudo rm -f "$SYMLINK_PATH"
-        fi
-        echo -e "${GREEN}✅ Removed${RESET}"
-    fi
-    
-    echo ""
-    echo -e "${GREEN}${BOLD}✅ Moibash uninstalled successfully!${RESET}"
-    echo -e "${BLUE}Thanks for using moibash! 👋${RESET}"
-    echo ""
-    exit 0
-fi
-
 # Handle help
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo -e "${CYAN}${BOLD}Moibash Installation Script${RESET}"
@@ -72,7 +23,6 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo -e "${YELLOW}${BOLD}Usage:${RESET}"
     echo "  ./install.sh                    Install moibash locally"
     echo "  curl ... install.sh | bash      Install moibash remotely"
-    echo "  ./install.sh --uninstall        Uninstall moibash"
     echo "  ./install.sh --help             Show this help"
     echo ""
     echo -e "${YELLOW}${BOLD}Description:${RESET}"
@@ -84,6 +34,9 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  • pip3"
     echo "  • curl"
     echo "  • git"
+    echo ""
+    echo -e "${YELLOW}${BOLD}Uninstall:${RESET}"
+    echo "  moibash --uninstall"
     echo ""
     echo -e "${BLUE}Repository: ${MAGENTA}https://github.com/minhqnd/moibash${RESET}"
     echo ""
@@ -292,8 +245,8 @@ if [ -L "$SYMLINK_PATH" ] && [ -x "$INSTALL_DIR/moibash.sh" ]; then
     echo -e "${MAGENTA}${BOLD}💡 Quick Tips:${RESET}"
     echo -e "  • Start chatting: ${CYAN}moibash${RESET}"
     echo -e "  • Get help: ${CYAN}moibash --help${RESET}"
-    echo -e "  • Update: ${CYAN}moibash --update${RESET} or ${CYAN}cd $INSTALL_DIR && git pull${RESET}"
-    echo -e "  • Uninstall: ${CYAN}./install.sh --uninstall${RESET}"
+    echo -e "  • Update: ${CYAN}moibash --update${RESET}"
+    echo -e "  • Uninstall: ${CYAN}moibash --uninstall${RESET}"
     echo ""
     echo -e "${YELLOW}⚠️  First run:${RESET}"
     echo -e "  Moibash will ask for your GEMINI API KEY on first launch."
