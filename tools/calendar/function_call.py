@@ -301,6 +301,12 @@ def call_gemini_api(conversation: List[Dict], api_key: str) -> Optional[Dict]:
         "tools": [{"functionDeclarations": FUNCTION_DECLARATIONS}],
         "systemInstruction": {
             "parts": [{"text": SYSTEM_INSTRUCTION}]
+        },
+        "generationConfig": {
+            "temperature": 0.9,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192
         }
     }
     

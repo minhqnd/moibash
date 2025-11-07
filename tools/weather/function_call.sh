@@ -46,7 +46,13 @@ response=$(curl -s -X POST \
             \"required\": [\"location\"]
           }
         }]
-      }]
+      }],
+      \"generationConfig\": {
+        \"temperature\": 0.9,
+        \"topK\": 40,
+        \"topP\": 0.95,
+        \"maxOutputTokens\": 8192
+      }
     }")
 
 # Parse location từ response
@@ -108,7 +114,13 @@ final_response=$(curl -s -X POST \
       \"contents\": [{
         \"role\": \"user\",
         \"parts\": [{\"text\": \"$instruction\"}]
-      }]
+      }],
+      \"generationConfig\": {
+        \"temperature\": 0.9,
+        \"topK\": 40,
+        \"topP\": 0.95,
+        \"maxOutputTokens\": 8192
+      }
     }")
 
 # Parse response cuối cùng

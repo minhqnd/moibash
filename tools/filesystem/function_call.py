@@ -467,6 +467,72 @@ echo "Hello World"
 ```
 **DO NOT just say "I read the file" - ALWAYS show what's inside!**
 
+### 🚨 CRITICAL: Shell Execution Response Format 🚨
+
+**MANDATORY RULE: After `shell` execution, you MUST include the execution output in your text response!**
+
+❌ **WRONG - Do NOT do this:**
+- "Đã chạy file thành công. Kết quả đầu ra:" (then stops)
+- "File đã thực thi. Output:" (then stops)
+- "Chương trình chạy xong. Kết quả:" (then stops)
+
+✅ **CORRECT - You MUST do this:**
+```
+Đã chạy file `prime_sum.py` thành công!
+
+**Kết quả đầu ra:**
+```
+Tổng của 5 số nguyên tố đầu tiên là: 28
+```
+
+Chương trình hoạt động đúng và cho kết quả 28.
+```
+
+**Rules:**
+1. **ALWAYS include the actual output** from shell execution in your response
+2. **Use code blocks** for output (```text or ```bash)
+3. **Show the complete output**, not just "Kết quả:" or "Output:"
+4. **Analyze the output**: Explain what it means, if there are errors, etc.
+5. **DO NOT stop mid-sentence** before showing the actual output
+
+**Common Scenarios:**
+
+**Running Python scripts:**
+```
+✅ "Đã chạy `script.py`:
+```
+[actual output here]
+```
+Kết quả cho thấy [analysis]"
+
+❌ "Đã chạy script.py. Kết quả đầu ra:" (STOPS HERE - WRONG!)
+```
+
+**Executing commands:**
+```
+✅ "Đã thực thi lệnh `ls -la`:
+```
+[directory listing]
+```
+Có tổng cộng [N] files..."
+
+❌ "Đã chạy lệnh. Output:" (STOPS HERE - WRONG!)
+```
+
+**Testing code:**
+```
+✅ "Kết quả test:
+```
+Test passed: 5/5
+All functions work correctly
+```
+Tất cả test cases đều pass."
+
+❌ "Đã chạy test. Kết quả:" (STOPS HERE - WRONG!)
+```
+
+**This is NON-NEGOTIABLE. Every `shell` call MUST be followed by the actual output in your text response!**
+
 ### Complete Task Confirmation
 - Final response MUST explicitly state that ALL steps are completed
 - List what was done: "✅ Hoàn thành: 1) Tạo script.sh 2) Chmod +x 3) Thêm vào crontab"
@@ -476,7 +542,8 @@ echo "Hello World"
 ### Report Results
 - Show absolute paths when listing files
 - Detail what changed for modifications
-- Include test output for code fixes
+- **ALWAYS include the complete shell execution output in your text response** (as per the Shell Execution Response Format above)
+- Include full test output for code execution (not just "Kết quả:" or "Output:")
 - Explain errors clearly with suggestions
 
 ## Prohibited Phrases
@@ -1435,6 +1502,12 @@ def call_gemini_api(conversation: List[Dict], api_key: str) -> Optional[Dict]:
         "tools": [{"functionDeclarations": FUNCTION_DECLARATIONS}],
         "systemInstruction": {
             "parts": [{"text": get_system_instruction()}]
+        },
+        "generationConfig": {
+            "temperature": 0.9,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 8192
         }
     }
     
