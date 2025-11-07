@@ -26,7 +26,70 @@ ROUTER_SCRIPT="$SCRIPT_DIR/router.sh"
 CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
 
 # Version
-VERSION="1.0.0"
+VERSION="1.1.0"
+
+# Auto-update check (only once per day)
+AUTO_UPDATE_CHECK_FILE="$SCRIPT_DIR/.last_update_check"
+check_for_updates() {
+    # Skip if not in git repo or if checked today
+    if [ ! -d "$SCRIPT_DIR/.git" ]; then
+        return
+    fi
+    
+    # Check if we already checked today
+    if [ -f "$AUTO_UPDATE_CHECK_FILE" ]; then
+        LAST_CHECK=$(cat "$AUTO_UPDATE_CHECK_FILE")
+        TODAY=$(date +%Y-%m-%d)
+        if [ "$LAST_CHECK" = "$TODAY" ]; then
+            return
+        fi
+    fi
+    
+    # Check for updates silently
+    cd "$SCRIPT_DIR" 2>/dev/null || return
+    git fetch origin main 2>/dev/null || return
+    
+    LOCAL=$(git rev-parse HEAD 2>/dev/null)
+    REMOTE=$(git rev-parse origin/main 2>/dev/null)
+    
+    if [ "$LOCAL" != "$REMOTE" ]; then
+        echo -e "${YELLOW}⚠️  New version available! Run ${CYAN}moibash --update${YELLOW} to update.${RESET}"
+        echo ""
+    fi
+    
+    # Save check timestamp
+    date +%Y-%m-%d > "$AUTO_UPDATE_CHECK_FILE"
+}
+
+# Function to perform update
+perform_update() {
+    echo -e "${CYAN}${BOLD}🔄 Updating moibash...${RESET}"
+    
+    if [ ! -d "$SCRIPT_DIR/.git" ]; then
+        echo -e "${RED}❌ Not a git repository. Cannot auto-update.${RESET}"
+        echo -e "${YELLOW}Please reinstall: ${CYAN}curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | bash${RESET}"
+        exit 1
+    fi
+    
+    cd "$SCRIPT_DIR"
+    
+    # Stash any local changes
+    git stash push -m "Auto-stash before update" 2>/dev/null
+    
+    # Pull latest changes
+    echo -e "${BLUE}Pulling latest changes...${RESET}"
+    if git pull origin main; then
+        echo -e "${GREEN}✅ Updated successfully!${RESET}"
+        echo -e "${BLUE}Restarting moibash...${RESET}"
+        echo ""
+        # Restart moibash
+        exec "$SCRIPT_DIR/moibash.sh"
+    else
+        echo -e "${RED}❌ Update failed!${RESET}"
+        echo -e "${YELLOW}Try manual update: cd $SCRIPT_DIR && git pull${RESET}"
+        exit 1
+    fi
+}
 
 # Hàm parse markdown để hiển thị đầy đủ markdown
 parse_markdown() {
@@ -401,17 +464,11 @@ case "${1:-}" in
         exit 0
         ;;
     --update|-u)
-        echo -e "${CYAN}${BOLD}🔄 Đang cập nhật moibash...${RESET}"
-        if [ -f "$SCRIPT_DIR/update.sh" ]; then
-            exec "$SCRIPT_DIR/update.sh"
-        else
-            echo -e "${RED}❌ Lỗi: Không tìm thấy script update.sh${RESET}"
-            echo -e "${YELLOW}Vui lòng chạy: cd $SCRIPT_DIR && git pull${RESET}"
-            exit 1
-        fi
+        perform_update
         ;;
     "")
-        # Không có arguments, chạy chat bình thường
+        # Không có arguments, check for updates first
+        check_for_updates
         ;;
     *)
         echo -e "${RED}❌ Lỗi: Tham số không hợp lệ: $1${RESET}"

@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-07
+
+### 🎉 Major Improvements
+- **Unified Installation**: Merged multiple install scripts into single `install.sh`
+  - Supports both remote (`curl | bash`) and local install
+  - Auto-detects installation mode
+  - Built-in system requirements check (Python 3.6+, pip3, curl, git)
+  - Interactive API key setup
+
+### ✨ Added
+- **Auto-Update Check**: Moibash now checks for updates once per day automatically
+  - Shows notification when new version available
+  - Non-intrusive (only checks once per day)
+  - Easy update with `moibash --update`
+- **Built-in Uninstall**: Added `./install.sh --uninstall` command
+- **Python Requirement**: Added Python 3.6+ as required dependency with version validation
+
+### 🔄 Changed
+- **Simplified Scripts**: Reduced from 5 scripts to 2 main scripts
+  - ❌ Removed: `install_remote.sh`, `system_check.sh`, `update.sh`, `uninstall.sh`
+  - ✅ Integrated: All functionality into `install.sh` and `moibash.sh`
+- **Better Update Flow**: Update functionality built into main script
+  - Auto-stash local changes before update
+  - Auto-restart after successful update
+  - Better error handling and git integration
+
+### 📚 Documentation
+- Updated README.md with simplified installation instructions
+- Updated REQUIREMENTS.md to reflect new installation process
+- Added comprehensive Python requirements documentation
+
+### 🐛 Fixed
+- Better error messages for missing dependencies
+- Improved Python version detection and validation
+- Fixed symlink creation on different platforms
+- Better handling of local vs remote installation
+
+---
+
 ## [1.0.0] - 2025-11-07
 
 ### Added

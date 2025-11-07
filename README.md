@@ -189,61 +189,72 @@ Output: Hello World
 
 ## 🚀 Cài đặt nhanh
 
-### Cài đặt đơn giản với symlink (Khuyến nghị)
+### ⚡ Cài đặt siêu nhanh (Remote Install)
+
+Chạy một dòng lệnh duy nhất để cài đặt moibash trên bất kỳ máy nào:
 
 ```bash
-# Clone repository
-git clone https://github.com/minhqnd/moibash.git
-cd moibash
+curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | bash
+```
 
-# Cấu hình API key
-cp .env.example .env
-# Chỉnh sửa .env và thêm GEMINI_API_KEY
+Script sẽ tự động:
+- ✅ Kiểm tra yêu cầu hệ thống (Bash, Python 3.6+, curl, git, pip3)
+- ✅ Tải xuống moibash từ GitHub
+- ✅ Cài đặt vào `~/.moibash`
+- ✅ Tạo symlink để chạy từ bất kỳ đâu
+- ✅ Thiết lập GEMINI_API_KEY
+- ✅ Cấu hình quyền thực thi
 
-# Cài đặt (tạo symlink vào /usr/local/bin)
-./install.sh
-
-# Chạy từ bất kỳ đâu
+Sau khi cài đặt xong, chỉ cần gõ:
+```bash
 moibash
 ```
 
-### Hoặc chạy trực tiếp (không cần symlink)
+### 🔧 Cài đặt cục bộ (Local Install)
+
+Nếu bạn đã clone repository:
 
 ```bash
 # Clone repository
 git clone https://github.com/minhqnd/moibash.git
 cd moibash
 
-# Cấp quyền thực thi
-chmod +x moibash.sh router.sh
-chmod +x tools/*.sh tools/*/*.sh
-
-# Cấu hình API key
-cp .env.example .env
-# Chỉnh sửa .env và thêm GEMINI_API_KEY
-
-# Chạy
-./moibash.sh
+# Chạy script cài đặt
+./install.sh
 ```
+
+Script sẽ tự động kiểm tra và cài đặt tương tự remote install.
 
 📖 **Xem [INSTALL.md](INSTALL.md) để biết chi tiết và troubleshooting**
 
+📋 **Xem [REQUIREMENTS.md](REQUIREMENTS.md) để biết yêu cầu hệ thống chi tiết**
+
+### Kiểm tra hệ thống
+
+Script cài đặt sẽ tự động kiểm tra:
+- ✅ Bash, Python 3.6+, pip3, curl, git
+- ✅ Internet connection
+- ✅ API keys (yêu cầu nhập nếu chưa có)
+- ✅ Permissions và cấu hình
+
 ### Cập nhật
 
-```bash
-# Cách 1: Dùng command built-in
-moibash --update
+Moibash tự động kiểm tra update mỗi ngày. Để update thủ công:
 
-# Cách 2: Manual
-cd /path/to/moibash
-git pull origin main
+```bash
+moibash --update
 ```
 
 ### Gỡ cài đặt
 
 ```bash
-cd /path/to/moibash
-./uninstall.sh
+# Nếu đã có repository local
+cd moibash
+./install.sh --uninstall
+
+# Hoặc xóa thủ công
+rm -rf ~/.moibash
+sudo rm /usr/local/bin/moibash
 ```
 
 ## 🚀 Chi tiết cài đặt và thiết lập
