@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import requests
 import time
+import re
 
 # Constants
 SCRIPT_DIR = Path(__file__).parent
@@ -50,6 +51,7 @@ SYSTEM_INSTRUCTION = """Bạn là trợ lý quản lý file hệ thống thông 
 2. KHI USER YÊU CẦU XÓA/TẠO/SỬA/ĐỔI TÊN FILE → THỰC HIỆN NGAY LẬP TỨC!
 3. ĐỪNG HỎI "Bạn có muốn...", "Bạn có chắc...", "Có thực hiện không?"
 4. Confirmation sẽ được hiển thị TỰ ĐỘNG bởi hệ thống, nhiệm vụ của bạn là GỌI FUNCTION!
+5. **LUÔN LUÔN TRẢ VỀ TEXT RESPONSE CUỐI CÙNG CHO USER** - Dù thành công hay thất bại!
 
 KHI XỬ LÝ YÊU CẦU:
 1. Phân tích yêu cầu của user
@@ -133,12 +135,20 @@ QUAN TRỌNG:
 - **QUAN TRỌNG NHẤT**: KHI USER YÊU CẦU XÓA/ĐỔI TÊN/CẬP NHẬT FILE - THỰC HIỆN NGAY, ĐỪNG HỎI LẠI!
 - Hệ thống đã có confirmation riêng, ĐỪNG hỏi lại user trong chat response
 - Với bulk operations (xóa/đổi tên nhiều file), gọi function cho TỪNG file tuần tự
-- Sau khi thực thi xong, báo kết quả thành công/thất bại
+- Sau khi thực thi xong, **BẮT BUỘC phải trả về text response** báo kết quả thành công/thất bại
+- Nếu function call thất bại (error), **VẪN PHẢI trả về text response** giải thích lỗi cho user
 - Báo lỗi rõ ràng nếu không thực hiện được
 - Hiển thị kết quả chi tiết cho user với đường dẫn đầy đủ
 - shell function có thể: chạy lệnh shell (action="command") hoặc execute script file (action="file")
 - Có thể kết hợp nhiều lệnh với pipe: ps aux | sort -nrk 4 | head -5
 - Với yêu cầu phức tạp, dùng shell để thực thi trực tiếp thay vì nhiều bước
+
+🔴 QUY TẮC BẮT BUỘC VỀ TEXT RESPONSE:
+- SAU MỖI FUNCTION CALL (dù thành công hay thất bại) → BẮT BUỘC TRẢ VỀ TEXT RESPONSE
+- Không được dừng lại sau function call mà không có text response
+- Ví dụ thành công: "Đã tìm thấy 5 files trong thư mục tools"
+- Ví dụ thất bại: "Không tìm thấy thư mục 'zxcvzxcv'. Vui lòng kiểm tra lại tên thư mục."
+- Text response phải tự nhiên, thân thiện với người dùng Việt Nam
 
 VÍ DỤ ĐÚNG KHI XÓA NHIỀU FILE:
 User: "xóa các file .tmp"
@@ -166,9 +176,20 @@ User: "xóa các file .tmp"
 - "Đã đổi tên..."
 
 QUY TẮC QUAN TRỌNG CHO BULK DELETE/RENAME:
-- Flow bắt buộc: SEARCH/LIST → DELETE (NGAY LẬP TỨC, KHÔNG HỎI!) → REPORT RESULT
+- Flow bắt buộc: SEARCH/LIST → DELETE (NGAY LẬP TỨC, KHÔNG HỎI!) → TEXT RESPONSE BÁO KẾT QUẢ
 - Hệ thống sẽ tự động hiển thị confirmation box cho user
-- Nhiệm vụ của bạn là GỌI FUNCTION, không phải hỏi user!"""
+- Nhiệm vụ của bạn là GỌI FUNCTION, không phải hỏi user!
+
+📋 LUỒNG XỬ LÝ BẮT BUỘC:
+1. Nhận yêu cầu từ user
+2. Gọi function (read/list/search/create/delete/rename/shell)
+3. Nhận kết quả từ function
+4. **BẮT BUỘC: Trả về text response** tóm tắt kết quả cho user (dù thành công hay lỗi)
+
+❌ KHÔNG BAO GIỜ:
+- Dừng lại sau function call mà không có text response
+- Để user thấy "Không nhận được phản hồi từ AI"
+- Bỏ qua việc báo kết quả cho user"""
 
 # Function declarations
 FUNCTION_DECLARATIONS = [
@@ -345,6 +366,82 @@ def debug_print(*args, **kwargs):
     if DEBUG:
         print("[DEBUG]", *args, file=sys.stderr, **kwargs)
 
+# ===== UI/ANSI helpers =====
+# ANSI color/style codes
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+RED = "\033[0;31m"
+GREEN = "\033[0;32m"
+YELLOW = "\033[0;33m"
+BLUE = "\033[0;34m"
+MAGENTA = "\033[0;35m"
+CYAN = "\033[0;36m"
+WHITE = "\033[1;37m"
+GRAY = "\033[0;90m"
+
+ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
+
+def strip_ansi(s: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    return ANSI_PATTERN.sub("", s or "")
+
+def visible_len(s: str) -> int:
+    """Length of string as displayed (excluding ANSI codes)."""
+    return len(strip_ansi(s))
+
+def color_for_func(func_name: str) -> str:
+    """Pick a color for a given function name."""
+    return {
+        "read_file": CYAN,
+        "create_file": GREEN,
+        "update_file": YELLOW,
+        "delete_file": RED,
+        "rename_file": MAGENTA,
+        "list_files": BLUE,
+        "search_files": BLUE,
+        "shell": GRAY,
+        "execute_file": GRAY,
+        "run_command": GRAY,
+    }.get(func_name, WHITE)
+
+def resolve_dir_path(dir_path: str) -> (str, Optional[str]):
+    """Resolve a directory path; if it doesn't exist, try simple, safe corrections.
+    Returns: (resolved_dir_path, note) where note is a human message if corrected.
+    """
+    if not dir_path or dir_path.strip() == "":
+        return ".", None
+
+    p = Path(dir_path)
+    if p.exists():
+        return dir_path, None
+
+    # Try pluralization fix: add/remove trailing 's'
+    if not dir_path.endswith('s'):
+        cand = dir_path + 's'
+        if Path(cand).exists():
+            return cand, f"Directory '{dir_path}' not found. Using '{cand}'."
+    else:
+        cand = dir_path[:-1]
+        if Path(cand).exists():
+            return cand, f"Directory '{dir_path}' not found. Using '{cand}'."
+
+    # Case-insensitive exact match in current directory
+    try:
+        entries = [e for e in os.listdir('.') if os.path.isdir(e)]
+        for e in entries:
+            if e.lower() == dir_path.lower():
+                return e, f"Directory '{dir_path}' not found. Using '{e}'."
+        # Substring heuristic: pick shortest containing dir
+        candidates = [e for e in entries if dir_path.lower() in e.lower()]
+        if candidates:
+            best = sorted(candidates, key=len)[0]
+            return best, f"Directory '{dir_path}' not found. Using '{best}'."
+    except Exception:
+        pass
+
+    return dir_path, None
+
 def sanitize_for_display(text: str, max_length: int = 100) -> str:
     """
     Sanitize text for display, preventing sensitive data exposure
@@ -409,9 +506,18 @@ def print_box(lines: List[str], title: str = None):
     print(border_top, file=sys.stderr, flush=True)
     
     if title:
-        # Print title line
-        # Same calculation as content lines
-        padding = BORDER_WIDTH - len(title) - 2
+        # Print title line (respect visible width ignoring ANSI)
+        tlen = visible_len(title)
+        padding = BORDER_WIDTH - tlen - 2
+        if padding < 0:
+            # Hard truncate title to fit
+            cut = tlen - (BORDER_WIDTH - 2)
+            # naive truncate by removing last characters from raw title (safe as title is small)
+            raw_no_ansi = strip_ansi(title)
+            raw_no_ansi = raw_no_ansi[: max(0, (BORDER_WIDTH - 5))] + "..." if cut > 0 else raw_no_ansi
+            title = raw_no_ansi
+            tlen = visible_len(title)
+            padding = max(0, BORDER_WIDTH - tlen - 2)
         print(f"│ {title}{' ' * padding} │", file=sys.stderr, flush=True)
         # Empty line after title
         # Empty line: "│" + spaces + "│" = BORDER_WIDTH + 2
@@ -420,12 +526,16 @@ def print_box(lines: List[str], title: str = None):
         print(f"│{' ' * BORDER_WIDTH}│", file=sys.stderr, flush=True)
     
     for line in lines:
-        # Calculate padding correctly
-        # Border: "╭" + "─" * BORDER_WIDTH + "╮" = BORDER_WIDTH + 2 chars
-        # Line:   "│ " + line + padding + " │" must equal BORDER_WIDTH + 2
-        # So: 1 + 1 + len(line) + padding + 1 + 1 = BORDER_WIDTH + 2
-        # Therefore: len(line) + padding = BORDER_WIDTH - 2
-        padding = BORDER_WIDTH - len(line) - 2
+        # Calculate padding using visible length (exclude ANSI)
+        vlen = visible_len(line)
+        padding = BORDER_WIDTH - vlen - 2
+        if padding < 0:
+            # Truncate visible part to fit
+            raw = strip_ansi(line)
+            raw = raw[: max(0, BORDER_WIDTH - 5)] + "..."
+            line = raw
+            vlen = visible_len(line)
+            padding = max(0, BORDER_WIDTH - vlen - 2)
         print(f"│ {line}{' ' * padding} │", file=sys.stderr, flush=True)
     
     print(border_bottom, file=sys.stderr, flush=True)
@@ -490,12 +600,19 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
     else:
         display = f"{prefix} {func_name}"
     
-    # Truncate if too long (simple string truncation, no emoji)
-    if len(display) > BORDER_WIDTH - 4:
-        display = display[:BORDER_WIDTH - 7] + "..."
-    
+    # Truncate if too long (consider visible length)
+    if visible_len(display) > BORDER_WIDTH - 4:
+        # Keep room for the prefix symbols and ellipsis
+        raw = display
+        if visible_len(raw) > BORDER_WIDTH - 7:
+            raw = raw[: (BORDER_WIDTH - 10)] + "..."
+        display = raw
+
+    # Colorize header line
+    color = color_for_func(func_name)
+    line = f"{GREEN}✓{RESET} {color}{BOLD}{display}{RESET}"
     # Use print_box helper
-    print_box([f"✓ {display}"], title=None)
+    print_box([line], title=None)
 
 def print_tool_result(func_name: str, result: Dict[str, Any]):
     """Print result box AFTER the tool was executed - for ALL functions."""
@@ -504,12 +621,17 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
     
     # Check for errors
     if isinstance(result, dict) and "error" in result:
-        lines.append(f"✗ Error: {result['error']}")
+        lines.append(f"{RED}{BOLD}✗ Error:{RESET} {result['error']}")
+        if isinstance(result, dict) and "exit_code" in result:
+            lines.append(f"  Exit code: {WHITE}{result['exit_code']}{RESET}")
     # Search/List files results
     elif func_name in ("search_files", "list_files") and isinstance(result, dict):
+        # Optional note when path auto-corrected
+        if isinstance(result, dict) and result.get("note"):
+            lines.append(f"{YELLOW}Note:{RESET} {result['note']}")
         files = result.get("files")
         if isinstance(files, list):
-            lines.append(f"Found {len(files)} matching file(s)")
+            lines.append(f"{CYAN}{BOLD}Found {len(files)} matching file(s){RESET}")
             lines.append("")
             # Show up to first 5 files
             preview = files[:5]
@@ -521,7 +643,7 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
                 # Truncate if too long
                 if len(display) > BORDER_WIDTH - 6:
                     display = display[:BORDER_WIDTH - 9] + "..."
-                lines.append(f"  - {display}")
+                lines.append(f"  - {WHITE}{display}{RESET}")
             if len(files) > len(preview):
                 lines.append(f"  ... (+{len(files)-len(preview)} more)")
         else:
@@ -531,7 +653,7 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
         content = result.get("content", "")
         if isinstance(content, str):
             content_lines = content.splitlines()
-            lines.append(f"Read {len(content_lines)} line(s)")
+            lines.append(f"{CYAN}{BOLD}Read {len(content_lines)} line(s){RESET}")
             if content_lines:
                 first = content_lines[0]
                 if len(first) > BORDER_WIDTH - 14:
@@ -543,23 +665,25 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
     elif func_name in ("create_file", "update_file", "delete_file", "rename_file"):
         if isinstance(result, dict):
             if "success" in result:
-                status = "✓ Success" if result["success"] else "✗ Failed"
-                lines.append(status)
+                ok = bool(result["success"]) if isinstance(result["success"], bool) else False
+                status = f"{GREEN}✓ Success{RESET}" if ok else f"{RED}✗ Failed{RESET}"
+                lines.append(f"{BOLD}{status}{RESET}")
             if "message" in result:
                 lines.append(result["message"])
             if "path" in result:
                 path = result['path']
                 if len(path) > BORDER_WIDTH - 10:
                     path = path[:BORDER_WIDTH - 13] + "..."
-                lines.append(f"  Path: {path}")
+                lines.append(f"  Path: {WHITE}{path}{RESET}")
         else:
             lines.append(str(result))
     # Shell/Execute results
     elif func_name in ("shell", "execute_file", "run_command"):
         if isinstance(result, dict):
             if "success" in result:
-                status = "✓ Success" if result["success"] else "✗ Failed"
-                lines.append(status)
+                ok = bool(result["success"]) if isinstance(result["success"], bool) else False
+                status = f"{GREEN}✓ Success{RESET}" if ok else f"{RED}✗ Failed{RESET}"
+                lines.append(f"{BOLD}{status}{RESET}")
             if "output" in result:
                 output = result["output"]
                 # Truncate long output
@@ -570,11 +694,11 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
                 for out_line in output_lines:
                     if len(out_line) > BORDER_WIDTH - 4:
                         out_line = out_line[:BORDER_WIDTH - 7] + "..."
-                    lines.append(f"  {out_line}")
+                    lines.append(f"  {DIM}{out_line}{RESET}")
                 if len(output.splitlines()) > 5:
                     lines.append("  ... (output truncated)")
             if "exit_code" in result:
-                lines.append(f"  Exit code: {result['exit_code']}")
+                lines.append(f"  Exit code: {WHITE}{result['exit_code']}{RESET}")
         else:
             lines.append(str(result))
     # Generic fallback
@@ -585,7 +709,10 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
         lines.append(raw)
     
     # Print using print_box
-    print_box(lines, title=f"{func_name.upper().replace('_', ' ')} RESULT")
+    # Colorful title for results
+    tcolor = color_for_func(func_name)
+    title_text = f"{tcolor}{BOLD}{func_name.upper().replace('_', ' ')} RESULT{RESET}"
+    print_box(lines, title=title_text)
 
 def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = False) -> bool:
     """
@@ -648,8 +775,9 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     lines.append("  3. No, cancel (esc)")
     lines.append("")
     
-    # Print using print_box
-    print_box(lines, title="? CONFIRM ACTION")
+    # Print using print_box (highlight title)
+    confirm_title = f"{YELLOW}{BOLD}? CONFIRM ACTION{RESET}"
+    print_box(lines, title=confirm_title)
     print("Choice: ", end='', file=sys.stderr, flush=True)
     
     # Đọc input từ user
@@ -699,7 +827,18 @@ def call_filesystem_script(script_name: str, *args) -> Dict[str, Any]:
         debug_print(f"Stderr: {result.stderr[:500]}")
         
         if result.returncode != 0:
-            return {"error": result.stderr or "Command failed"}
+            # Try to parse stdout as JSON first (script might return structured error)
+            try:
+                parsed = json.loads(result.stdout)
+                if isinstance(parsed, dict) and "error" in parsed:
+                    # Extract clean error message from nested JSON
+                    return {"error": parsed["error"], "exit_code": result.returncode}
+            except (json.JSONDecodeError, KeyError):
+                pass
+            
+            # Fallback to raw stderr/stdout
+            err_msg = (result.stderr or "").strip() or (result.stdout or "").strip() or "Command failed"
+            return {"error": err_msg, "exit_code": result.returncode}
         
         # Try to parse JSON response
         try:
@@ -732,16 +871,22 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
         
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
+        resolved_dir, note = resolve_dir_path(dir_path)
         pattern = args.get("pattern", "*")
         recursive = args.get("recursive", "false")
-        result = call_filesystem_script("listfiles", dir_path, pattern, recursive)
+        result = call_filesystem_script("listfiles", resolved_dir, pattern, recursive)
+        if isinstance(result, dict) and note:
+            result["note"] = note
         print_tool_result(func_name, result)
         
     elif func_name == "search_files":
         dir_path = args.get("dir_path", ".")
         name_pattern = args.get("name_pattern", "*")
         recursive = args.get("recursive", "true")
-        result = call_filesystem_script("searchfiles", dir_path, name_pattern, recursive)
+        resolved_dir, note = resolve_dir_path(dir_path)
+        result = call_filesystem_script("searchfiles", resolved_dir, name_pattern, recursive)
+        if isinstance(result, dict) and note:
+            result["note"] = note
         print_tool_result(func_name, result)
         
     # Functions cần confirmation - confirm sau đó thực thi và hiển thị result
@@ -853,9 +998,23 @@ def parse_response(response: Dict) -> tuple:
     
     candidates = response.get("candidates", [])
     if not candidates:
-        return ("NO_RESPONSE", None, None)
+        # Check for promptFeedback blocking
+        prompt_feedback = response.get("promptFeedback", {})
+        block_reason = prompt_feedback.get("blockReason")
+        if block_reason:
+            debug_print(f"Blocked by safety: {block_reason}")
+            return ("ERROR", f"Request blocked: {block_reason}", None)
+        return ("NO_RESPONSE", None, response)
     
-    content = candidates[0].get("content", {})
+    candidate = candidates[0]
+    
+    # Check if candidate was blocked
+    finish_reason = candidate.get("finishReason")
+    if finish_reason and finish_reason not in ("STOP", "MAX_TOKENS"):
+        debug_print(f"Unusual finish reason: {finish_reason}")
+        # Continue anyway to check for partial content
+    
+    content = candidate.get("content", {})
     parts = content.get("parts", [])
     
     # Check for function call
@@ -871,7 +1030,12 @@ def parse_response(response: Dict) -> tuple:
         if "text" in part:
             return ("TEXT", part["text"], None)
     
-    return ("NO_RESPONSE", None, None)
+    # No content but check finish reason
+    if finish_reason:
+        debug_print(f"No content with finish_reason: {finish_reason}")
+        return ("NO_RESPONSE", None, {"finishReason": finish_reason, "candidate": candidate})
+    
+    return ("NO_RESPONSE", None, response)
 
 def main():
     """Main entry point"""
@@ -913,6 +1077,38 @@ def main():
             # Parse response
             response_type, value, extra = parse_response(response)
             debug_print(f"Response type: {response_type}")
+            
+            # Special handling: if NO_RESPONSE after a function call, provide fallback message
+            if response_type == "NO_RESPONSE" and tool_calls_made > 0:
+                # Gemini didn't respond after function call - create a fallback message
+                last_turn = conversation[-1] if conversation else None
+                if last_turn and last_turn.get("role") == "function":
+                    func_response = last_turn["parts"][0]["functionResponse"]
+                    func_name = func_response["name"]
+                    func_result = func_response["response"]["content"]
+                    
+                    # Generate a simple fallback message based on result
+                    if isinstance(func_result, dict):
+                        if "error" in func_result:
+                            fallback_msg = f"Đã xảy ra lỗi: {func_result['error']}"
+                        elif func_name in ("list_files", "search_files"):
+                            files = func_result.get("files", [])
+                            fallback_msg = f"Tìm thấy {len(files)} file/thư mục."
+                        elif func_name == "read_file":
+                            fallback_msg = "Đã đọc file thành công."
+                        elif func_name in ("create_file", "update_file"):
+                            fallback_msg = "Đã lưu file thành công."
+                        elif func_name == "delete_file":
+                            fallback_msg = "Đã xóa file thành công."
+                        elif func_name == "rename_file":
+                            fallback_msg = "Đã đổi tên file thành công."
+                        else:
+                            fallback_msg = "Thao tác đã hoàn thành."
+                    else:
+                        fallback_msg = "Thao tác đã hoàn thành."
+                    
+                    print(fallback_msg)
+                    sys.exit(0)
             
             if response_type == "FUNCTION_CALL":
                 tool_calls_made += 1
@@ -961,7 +1157,10 @@ def main():
                 sys.exit(0)
                 
             elif response_type == "NO_RESPONSE":
-                print("❌ Không nhận được phản hồi từ AI", file=sys.stderr)
+                # Debug: print full response to understand what's happening
+                if DEBUG and extra:
+                    debug_print(f"NO_RESPONSE details: {json.dumps(extra, ensure_ascii=False, indent=2)}")
+                print("❌ Không nhận được phản hồi từ AI. Vui lòng thử lại hoặc bật DEBUG=1 để xem chi tiết.", file=sys.stderr)
                 sys.exit(1)
                 
             elif response_type == "ERROR":
