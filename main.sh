@@ -22,14 +22,83 @@ ROUTER_SCRIPT="./router.sh"
 # File lưu lịch sử chat (tạm thời trong session)
 CHAT_HISTORY="./chat_history_$$.txt"
 
-# Hàm parse markdown để hiển thị in đậm và in nghiêng
+# Hàm parse markdown để hiển thị đầy đủ markdown
 parse_markdown() {
     local text="$1"
-    # Chuyển đổi **bold** thành ANSI bold
-    text=$(echo "$text" | sed 's/\*\*\([^*]*\)\*\*/\\033[1m\1\\033[0m/g')
-    # Chuyển đổi *italic* thành ANSI italic (nếu terminal hỗ trợ)
-    text=$(echo "$text" | sed 's/\*\([^*]*\)\*/\\033[3m\1\\033[0m/g')
-    echo "$text"
+    local in_code_block=false
+    
+    # Process line by line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Code block markers (```)
+        if [[ "$line" =~ ^\`\`\` ]]; then
+            if [ "$in_code_block" = false ]; then
+                in_code_block=true
+                lang="${line#\`\`\`}"
+                if [ -n "$lang" ]; then
+                    echo -e "${CYAN}${BOLD}┌─ Code: $lang${RESET}"
+                else
+                    echo -e "${CYAN}${BOLD}┌─ Code${RESET}"
+                fi
+            else
+                in_code_block=false
+                echo -e "${CYAN}${BOLD}└─${RESET}"
+            fi
+            continue
+        fi
+        
+        # Inside code block
+        if [ "$in_code_block" = true ]; then
+            echo -e "${CYAN}│${RESET} ${GRAY}${line}${RESET}"
+            continue
+        fi
+        
+        # Headings
+        if [[ "$line" =~ ^###[[:space:]](.+)$ ]]; then
+            echo -e "${YELLOW}${BOLD}${BASH_REMATCH[1]}${RESET}"
+            continue
+        elif [[ "$line" =~ ^##[[:space:]](.+)$ ]]; then
+            echo -e "${CYAN}${BOLD}${BASH_REMATCH[1]}${RESET}"
+            continue
+        elif [[ "$line" =~ ^#[[:space:]](.+)$ ]]; then
+            echo -e "${BLUE}${BOLD}${BASH_REMATCH[1]}${RESET}"
+            continue
+        fi
+        
+        # Bullet lists (- item)
+        if [[ "$line" =~ ^([[:space:]]*)[-\*][[:space:]](.+)$ ]]; then
+            indent="${BASH_REMATCH[1]}"
+            item="${BASH_REMATCH[2]}"
+            # Process inline formatting in item (use perl for better escape handling)
+            item=$(echo "$item" | perl -pe 's/`([^`]*)`/\033[0;90m$1\033[0m/g')
+            item=$(echo "$item" | perl -pe 's/\*\*([^*]+)\*\*/\033[1m$1\033[0m/g')
+            item=$(echo "$item" | perl -pe 's/(?<!\*)\*([^*]+)\*(?!\*)/\033[3m$1\033[0m/g')
+            echo -e "${indent}${GREEN}●${RESET} ${item}"
+            continue
+        fi
+        
+        # Numbered lists (1. item)
+        if [[ "$line" =~ ^([[:space:]]*)([0-9]+)\.[[:space:]](.+)$ ]]; then
+            indent="${BASH_REMATCH[1]}"
+            number="${BASH_REMATCH[2]}"
+            item="${BASH_REMATCH[3]}"
+            # Process inline formatting
+            item=$(echo "$item" | perl -pe 's/`([^`]*)`/\033[0;90m$1\033[0m/g')
+            item=$(echo "$item" | perl -pe 's/\*\*([^*]+)\*\*/\033[1m$1\033[0m/g')
+            item=$(echo "$item" | perl -pe 's/(?<!\*)\*([^*]+)\*(?!\*)/\033[3m$1\033[0m/g')
+            echo -e "${indent}${CYAN}${number}.${RESET} ${item}"
+            continue
+        fi
+        
+        # Regular line with inline formatting
+        # Bold (**text**) - must be processed before italic
+        line=$(echo "$line" | perl -pe 's/\*\*([^*]+)\*\*/\033[1m$1\033[0m/g')
+        # Italic (*text*) - use negative lookahead/lookbehind to avoid matching **
+        line=$(echo "$line" | perl -pe 's/(?<!\*)\*([^*]+)\*(?!\*)/\033[3m$1\033[0m/g')
+        # Inline code (`code`)
+        line=$(echo "$line" | perl -pe 's/`([^`]*)`/\033[0;90m$1\033[0m/g')
+        
+        echo -e "$line"
+    done <<< "$text"
 }
 
 # Hàm xóa màn hình
@@ -81,8 +150,8 @@ display_user_message() {
 display_agent_message() {
     local message="$1"
     local timestamp=$(get_timestamp)
-    local formatted_message=$(parse_markdown "$message")
-    echo -e "${MAGENTA}${BOLD}Agent:${RESET} $formatted_message"
+    echo -e "${MAGENTA}${BOLD}Agent:${RESET}"
+    parse_markdown "$message"
     # Lưu vào lịch sử
     echo "[$timestamp] AGENT: $message" >> "$CHAT_HISTORY"
     echo ""

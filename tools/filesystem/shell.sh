@@ -30,8 +30,8 @@ execute_shell() {
             return 1
         fi
         
-        # Thực thi lệnh
-        output=$($target 2>&1)
+        # Thực thi lệnh với eval để xử lý quotes và arguments đúng
+        output=$(eval "$target" 2>&1)
         exit_code=$?
         
         # Trả về kết quả
