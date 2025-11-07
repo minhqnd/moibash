@@ -46,7 +46,7 @@ check_and_setup_api_key() {
         echo -e "${RED}${BOLD}❌ GEMINI API KEY chưa được thiết lập!${RESET}"
         echo ""
         echo -e "${YELLOW}Moibash cần Gemini API Key để hoạt động.${RESET}"
-        echo -e "${CYAN}Lấy API key miễn phí tại: ${MAGENTA}https://makersuite.google.com/app/apikey${RESET}"
+        echo -e "${CYAN}Lấy API key miễn phí tại: ${MAGENTA}https://aistudio.google.com/app/api-keys${RESET}"
         echo ""
         echo -e "${GREEN}Vui lòng nhập GEMINI API KEY của bạn:${RESET}"
         echo -ne "${BLUE}${BOLD}➜${RESET} "
