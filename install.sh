@@ -248,11 +248,7 @@ if [ -L "$SYMLINK_PATH" ] && [ -x "$INSTALL_DIR/moibash.sh" ]; then
     echo -e "  • Update: ${CYAN}moibash --update${RESET}"
     echo -e "  • Uninstall: ${CYAN}moibash --uninstall${RESET}"
     echo ""
-    echo -e "${YELLOW}⚠️  First run:${RESET}"
-    echo -e "  Moibash will ask for your GEMINI API KEY on first launch."
-    echo -e "  Get your free key at: ${MAGENTA}https://makersuite.google.com/app/apikey${RESET}"
-    echo ""
-    echo -e "${GREEN}${BOLD}Happy chatting! 🚀${RESET}"
+    echo -e "${GREEN}${BOLD}Happy codding! 🚀${RESET}"
     echo ""
 else
     echo -e "${RED}❌ Installation failed!${RESET}"
