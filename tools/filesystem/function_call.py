@@ -20,7 +20,7 @@ ENV_FILE = SCRIPT_DIR / "../../.env"
 HISTORY_FILE = SCRIPT_DIR / "../../chat_history_filesystem.txt"
 MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
 MAX_HISTORY_MESSAGES = 10  # Keep last 10 messages for context
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
 
 # Session state for "always accept"
 SESSION_STATE = {
@@ -43,15 +43,26 @@ def load_env():
 load_env()
 
 # System instruction
-SYSTEM_INSTRUCTION = """Bạn là trợ lý quản lý file hệ thống thông minh với khả năng ghi nhớ ngữ cảnh cuộc trò chuyện.
+SYSTEM_INSTRUCTION = """Bạn là trợ lý quản lý file hệ thống thông minh với quyền thực thi cao.
+
+⚠️ QUY TẮC QUAN TRỌNG NHẤT - ĐỌC KỸ:
+1. HỆ THỐNG ĐÃ CÓ CONFIRMATION RIÊNG - ĐỪNG BAO GIỜ HỎI LẠI USER!
+2. KHI USER YÊU CẦU XÓA/TẠO/SỬA/ĐỔI TÊN FILE → THỰC HIỆN NGAY LẬP TỨC!
+3. ĐỪNG HỎI "Bạn có muốn...", "Bạn có chắc...", "Có thực hiện không?"
+4. Confirmation sẽ được hiển thị TỰ ĐỘNG bởi hệ thống, nhiệm vụ của bạn là GỌI FUNCTION!
 
 KHI XỬ LÝ YÊU CẦU:
-1. QUAN TRỌNG: Luôn xem xét lịch sử chat trước đó để hiểu ngữ cảnh
-2. Nếu user dùng từ "nó", "chúng", "đó", "kia" - tham chiếu đến đối tượng trong câu trước
-3. Nếu user nói "xóa cho tôi" mà không chỉ rõ - xem xét câu hỏi trước để biết xóa gì
-4. Phân tích và quyết định các bước cần thực hiện
-5. Gọi function tương ứng với đường dẫn chính xác
-6. Xử lý kết quả và thông báo cho user
+1. Phân tích yêu cầu của user
+2. Quyết định các bước cần thực hiện
+3. Gọi function tương ứng NGAY LẬP TỨC
+4. Sau khi function trả về kết quả, thông báo cho user
+
+QUY TẮC BẮT BUỘC:
+- LUÔN LUÔN gọi function để lấy thông tin mới nhất từ hệ thống
+- KHÔNG BAO GIỜ đoán hoặc giả định thông tin
+- KHÔNG BAO GIỜ hỏi xác nhận lại - hệ thống đã có confirmation riêng
+- Dù câu hỏi có vẻ đơn giản, vẫn PHẢI gọi function để verify
+- Ví dụ: Nếu user hỏi "có bao nhiêu file", BẮT BUỘC gọi list_files hoặc search_files
 
 CÁC FUNCTION KHẢ DỤNG:
 - read_file: Đọc nội dung file
@@ -69,18 +80,31 @@ CÁC FUNCTION KHẢ DỤNG:
 - Ví dụ: "./test.py", "/tmp/test.txt", "folder/file.txt"
 - list_files: nếu có thể liệt kê chi tiết ra, gồm bao nhiêu file, có các file gì, đuôi exetention gì, v.v.
 
-VÍ DỤ XỬ LÝ VỚI NGỮ CẢNH:
-User: "có file exe nào trong folder hiện tại và folder con không"
-→ Step 1: search_files(".", "*.exe", recursive=true)
-→ Trả lời: "Có X file .exe: /path/tuyệt/đối/file1.exe, /path/tuyệt/đối/file2.exe..." (LUÔN hiển thị đường dẫn tuyệt đối)
+VÍ DỤ XỬ LÝ - LUÔN THỰC HIỆN NGAY:
 
-User: "xóa cho tôi" (tiếp theo câu trên)
-→ HIỂU NGỮ CẢNH: User muốn xóa các file .exe vừa tìm được
-→ Step 1: Với mỗi file .exe, delete_file(path)
+User: "xóa các file txt trong folder hiện tại"
+❌ SAI: "Đã tìm thấy 1 file txt. Bạn có muốn xóa không?"
+✅ ĐÚNG:
+→ Step 1: search_files(".", "*.txt", recursive=false)
+→ Step 2: delete_file("/path/to/file1.txt")  # THỰC HIỆN NGAY, KHÔNG HỎI!
+→ Step 3: delete_file("/path/to/file2.txt")
+→ Trả lời: "Đã xóa thành công 2 files .txt"
 
 User: "xóa các file exe trong folder hiện tại và folder con"
+✅ ĐÚNG:
 → Step 1: search_files(".", "*.exe", recursive=true)
-→ Step 2: Với mỗi file, delete_file(path)
+→ Step 2: delete_file(path) cho từng file  # KHÔNG HỎI!
+→ Trả lời: "Đã xóa thành công X files .exe"
+
+User: "tạo file hello.py với nội dung hello world"
+✅ ĐÚNG:
+→ Step 1: create_file("hello.py", "print('Hello World')")  # THỰC HIỆN NGAY!
+→ Trả lời: "Đã tạo file hello.py thành công"
+
+User: "đổi tên test.txt thành backup.txt"
+✅ ĐÚNG:
+→ Step 1: rename_file("test.txt", "backup.txt")  # THỰC HIỆN NGAY!
+→ Trả lời: "Đã đổi tên file thành công"
 
 User: "tạo file hello.py với nội dung hello world và chạy nó"
 → Step 1: create_file("hello.py", "print('Hello World')")
@@ -119,17 +143,32 @@ QUAN TRỌNG:
 VÍ DỤ ĐÚNG KHI XÓA NHIỀU FILE:
 User: "xóa các file .tmp"
 ❌ SAI: "Bạn có chắc muốn xóa các file sau không?..."
+❌ SAI: "Đã tìm thấy 3 files. Bạn có muốn xóa không?"
 ✅ ĐÚNG: 
-→ Step 1: search_files(".", "*.tmp", recursive=false)  # LUÔN tìm/list trước, dù đã có trong context
-→ Step 2: delete_file("/path/to/test1.tmp")
-→ Step 3: delete_file("/path/to/test2.tmp")
-→ Step 4: delete_file("/path/to/test3.tmp")
+→ Step 1: search_files(".", "*.tmp", recursive=false)
+→ Step 2: delete_file("/path/to/test1.tmp")  # GỌI NGAY!
+→ Step 3: delete_file("/path/to/test2.tmp")  # GỌI NGAY!
+→ Step 4: delete_file("/path/to/test3.tmp")  # GỌI NGAY!
 → Trả lời: "Đã xóa thành công 3 files .tmp"
 
+🚫 CẤM TUYỆT ĐỐI:
+- "Bạn có muốn..."
+- "Bạn có chắc chắn..."
+- "Có thực hiện không..."
+- "Tôi có thể xóa nếu bạn đồng ý..."
+- Bất kỳ câu hỏi xác nhận nào khác
+
+✅ CHỈ ĐƯỢC:
+- Gọi function ngay lập tức
+- Báo kết quả sau khi thực thi
+- "Đã xóa thành công..."
+- "Đã tạo file..."
+- "Đã đổi tên..."
+
 QUY TẮC QUAN TRỌNG CHO BULK DELETE/RENAME:
-- Dù user vừa hỏi "có file X nào không" ở câu trước, khi user nói "xóa file X" thì VẪN PHẢI gọi search_files/list_files lại
-- Lý do: Để user thấy rõ tool đang tìm kiếm trước khi xóa (tăng tính minh bạch)
-- Flow bắt buộc: SEARCH/LIST → DELETE → REPORT RESULT"""
+- Flow bắt buộc: SEARCH/LIST → DELETE (NGAY LẬP TỨC, KHÔNG HỎI!) → REPORT RESULT
+- Hệ thống sẽ tự động hiển thị confirmation box cho user
+- Nhiệm vụ của bạn là GỌI FUNCTION, không phải hỏi user!"""
 
 # Function declarations
 FUNCTION_DECLARATIONS = [
@@ -149,7 +188,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "create_file",
-        "description": "Tạo file mới với nội dung. CẦN XÁC NHẬN từ user.",
+        "description": "Tạo file mới với nội dung. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
         "parameters": {
             "type": "object",
             "properties": {
@@ -167,7 +206,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "update_file",
-        "description": "Cập nhật nội dung file. CẦN XÁC NHẬN từ user.",
+        "description": "Cập nhật nội dung file. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
         "parameters": {
             "type": "object",
             "properties": {
@@ -190,7 +229,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "delete_file",
-        "description": "Xóa file hoặc folder. CẦN XÁC NHẬN từ user.",
+        "description": "Xóa file hoặc folder. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
         "parameters": {
             "type": "object",
             "properties": {
@@ -204,7 +243,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "rename_file",
-        "description": "Đổi tên file hoặc folder. CẦN XÁC NHẬN từ user.",
+        "description": "Đổi tên file hoặc folder. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN - GỌI NGAY LẬP TỨC!",
         "parameters": {
             "type": "object",
             "properties": {
@@ -267,7 +306,7 @@ FUNCTION_DECLARATIONS = [
     },
     {
         "name": "shell",
-        "description": "Thực thi lệnh shell hoặc chạy script file. CẦN XÁC NHẬN từ user cho các lệnh nguy hiểm.",
+        "description": "Thực thi lệnh shell hoặc chạy script file. HỆ THỐNG TỰ ĐỘNG XÁC NHẬN CHO LỆNH NGUY HIỂM - GỌI NGAY LẬP TỨC!",
         "parameters": {
             "type": "object",
             "properties": {
@@ -356,23 +395,40 @@ def get_terminal_width() -> int:
     except:
         return 94
 
-def display_width(text: str) -> int:
-    """Calculate display width of text including emojis (emojis count as 2)"""
-    import unicodedata
-    width = 0
-    for char in text:
-        if unicodedata.east_asian_width(char) in ('F', 'W'):
-            width += 2  # Full-width and wide characters
-        else:
-            width += 1
-    return width
-
-def pad_to_width(text: str, target_width: int) -> str:
-    """Pad text to target display width, accounting for emojis"""
-    current_width = display_width(text)
-    if current_width >= target_width:
-        return text
-    return text + ' ' * (target_width - current_width)
+def print_box(lines: List[str], title: str = None):
+    """
+    Print a box with content lines
+    Args:
+        lines: List of strings to print inside the box
+        title: Optional title for the box
+    """
+    BORDER_WIDTH = get_terminal_width()
+    border_top = "╭" + "─" * BORDER_WIDTH + "╮"
+    border_bottom = "╰" + "─" * BORDER_WIDTH + "╯"
+    
+    print(border_top, file=sys.stderr, flush=True)
+    
+    if title:
+        # Print title line
+        # Same calculation as content lines
+        padding = BORDER_WIDTH - len(title) - 2
+        print(f"│ {title}{' ' * padding} │", file=sys.stderr, flush=True)
+        # Empty line after title
+        # Empty line: "│" + spaces + "│" = BORDER_WIDTH + 2
+        # So: 1 + spaces + 1 = BORDER_WIDTH + 2
+        # Therefore: spaces = BORDER_WIDTH
+        print(f"│{' ' * BORDER_WIDTH}│", file=sys.stderr, flush=True)
+    
+    for line in lines:
+        # Calculate padding correctly
+        # Border: "╭" + "─" * BORDER_WIDTH + "╮" = BORDER_WIDTH + 2 chars
+        # Line:   "│ " + line + padding + " │" must equal BORDER_WIDTH + 2
+        # So: 1 + 1 + len(line) + padding + 1 + 1 = BORDER_WIDTH + 2
+        # Therefore: len(line) + padding = BORDER_WIDTH - 2
+        padding = BORDER_WIDTH - len(line) - 2
+        print(f"│ {line}{' ' * padding} │", file=sys.stderr, flush=True)
+    
+    print(border_bottom, file=sys.stderr, flush=True)
 
 def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[str, Any]] = None):
     """Print tool call information with border and optional result"""
@@ -388,197 +444,122 @@ def print_tool_call(func_name: str, args: Dict[str, Any], result: Optional[Dict[
             pass
     
     BORDER_WIDTH = get_terminal_width()
-    border = "╭" + "─" * BORDER_WIDTH + "╮"
-    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH
     
-    # Print border
-    print(border, file=sys.stderr, flush=True)
-    
-    # Function name with icon
-    icons = {
-        "read_file": "📖",
-        "create_file": "📝",
-        "update_file": "✏️",
-        "delete_file": "🗑️",
-        "rename_file": "📝",
-        "list_files": "📁",
-        "search_files": "🔍",
-        "shell": "⚡",
-        "execute_file": "▶️",
-        "run_command": "⚡"
+    # Function name with prefix (no emoji)
+    prefixes = {
+        "read_file": "[READ]",
+        "create_file": "[CREATE]",
+        "update_file": "[UPDATE]",
+        "delete_file": "[DELETE]",
+        "rename_file": "[RENAME]",
+        "list_files": "[LIST]",
+        "search_files": "[SEARCH]",
+        "shell": "[SHELL]",
+        "execute_file": "[EXEC]",
+        "run_command": "[RUN]"
     }
-    icon = icons.get(func_name, "🔧")
+    prefix = prefixes.get(func_name, "[TOOL]")
     
     # Format function name and args
     if func_name == "shell":
         action = args.get("action", "")
         if action == "command":
-            display = f"{icon}  Shell: {args.get('command', 'N/A')}"
+            display = f"{prefix} {args.get('command', 'N/A')}"
         elif action == "file":
-            display = f"{icon}  Shell: Execute {args.get('file_path', 'N/A')}"
+            display = f"{prefix} Execute: {args.get('file_path', 'N/A')}"
         else:
-            display = f"{icon}  Shell"
-    elif func_name == "execute_file":
-        display = f"{icon}  ExecuteFile: {args.get('file_path', 'N/A')}"
-    elif func_name == "run_command":
-        display = f"{icon}  RunCommand: {args.get('command', 'N/A')}"
+            display = f"{prefix}"
     elif func_name == "list_files":
         dir_path = args.get("dir_path", ".")
-        recursive = args.get("recursive", "false")
         pattern = args.get("pattern", "*")
-        display = f"{icon}  ListFiles: {dir_path}"
+        display = f"{prefix} {dir_path}"
         if pattern != "*":
             display += f" (pattern: {pattern})"
     elif func_name == "search_files":
         pattern = args.get("name_pattern", "*")
         dir_path = args.get("dir_path", ".")
-        display = f"{icon}  FindFiles: '{pattern}' within {dir_path}"
-    elif func_name == "read_file":
-        display = f"{icon}  ReadFile: {args.get('file_path', 'N/A')}"
-    elif func_name == "create_file":
-        display = f"{icon}  CreateFile: {args.get('file_path', 'N/A')}"
-    elif func_name == "update_file":
-        display = f"{icon}  UpdateFile: {args.get('file_path', 'N/A')}"
-    elif func_name == "delete_file":
-        display = f"{icon}  DeleteFile: {args.get('file_path', 'N/A')}"
+        display = f"{prefix} '{pattern}' in {dir_path}"
     elif func_name == "rename_file":
-        display = f"{icon}  RenameFile: {args.get('old_path', '')} → {args.get('new_path', '')}"
+        display = f"{prefix} {args.get('old_path', '')} → {args.get('new_path', '')}"
+    elif func_name in ["read_file", "create_file", "update_file", "delete_file"]:
+        display = f"{prefix} {args.get('file_path', 'N/A')}"
+    elif func_name == "execute_file":
+        display = f"{prefix} {args.get('file_path', 'N/A')}"
+    elif func_name == "run_command":
+        display = f"{prefix} {args.get('command', 'N/A')}"
     else:
-        display = f"{icon}  {func_name}"
+        display = f"{prefix} {func_name}"
     
-    # Truncate if too long, otherwise pad to width
-    if display_width(display) > CONTENT_WIDTH - 4:
-        # Truncate carefully considering emoji width
-        truncated = ""
-        current_w = 0
-        for char in display:
-            char_width = 2 if unicodedata.east_asian_width(char) in ('F', 'W') else 1
-            if current_w + char_width > CONTENT_WIDTH - 7:
-                break
-            truncated += char
-            current_w += char_width
-        display = truncated + "..."
+    # Truncate if too long (simple string truncation, no emoji)
+    if len(display) > BORDER_WIDTH - 4:
+        display = display[:BORDER_WIDTH - 7] + "..."
     
-    line_content = f"│ ✓ {display} "
-    padding_needed = CONTENT_WIDTH - display_width(line_content)
-    print(f"{line_content}{' ' * padding_needed} │", file=sys.stderr, flush=True)
-    
-    # Print result if provided
-    if result:
-        print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr, flush=True)
-        
-        # Format result based on function type
-        if func_name == "search_files" or func_name == "list_files":
-            if "files" in result:
-                files = result["files"]
-                count = len(files) if isinstance(files, list) else 0
-                line = f"│    Found {count} matching file(s) "
-                padding = CONTENT_WIDTH - display_width(line)
-                print(f"{line}{' ' * padding} │", file=sys.stderr, flush=True)
-        elif func_name == "read_file":
-            if "content" in result:
-                content = result["content"]
-                lines = content.count('\n') + 1 if content else 0
-                line = f"│    Read {lines} line(s) "
-                padding = CONTENT_WIDTH - display_width(line)
-                print(f"{line}{' ' * padding} │", file=sys.stderr, flush=True)
-    
-    print(bottom, file=sys.stderr, flush=True)
+    # Use print_box helper
+    print_box([f"✓ {display}"], title=None)
 
 def print_tool_result(func_name: str, result: Dict[str, Any]):
     """Print result box AFTER the tool was executed - for ALL functions."""
+    lines = []
     BORDER_WIDTH = get_terminal_width()
-    border = "╭" + "─" * BORDER_WIDTH + "╮"
-    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH
-
-    def line(text: str = ""):
-        pad = CONTENT_WIDTH - display_width(f"│ {text} ")
-        print(f"│ {text}{' ' * pad}  │", file=sys.stderr)
-
-    print(border, file=sys.stderr)
     
-    # Icon cho từng loại function
-    summary_icon = {
-        "read_file": "📖",
-        "list_files": "📁",
-        "search_files": "🔍",
-        "create_file": "✅",
-        "update_file": "✅",
-        "delete_file": "✅",
-        "rename_file": "✅",
-        "shell": "✅",
-        "execute_file": "✅",
-        "run_command": "✅"
-    }.get(func_name, "🔧")
-    
-    line(f"{summary_icon}  Result")
-    line()
-
     # Check for errors
     if isinstance(result, dict) and "error" in result:
-        line(f"❌ Error: {result['error']}")
+        lines.append(f"✗ Error: {result['error']}")
     # Search/List files results
     elif func_name in ("search_files", "list_files") and isinstance(result, dict):
         files = result.get("files")
         if isinstance(files, list):
-            line(f"Found {len(files)} matching file(s)")
-            # Show up to first 5 files (absolute paths)
+            lines.append(f"Found {len(files)} matching file(s)")
+            lines.append("")
+            # Show up to first 5 files
             preview = files[:5]
             for fpath in preview:
-                # Handle both string paths and dict objects
                 if isinstance(fpath, dict):
                     display = fpath.get('path', str(fpath))
                 else:
                     display = str(fpath)
-                    
-                if display_width(display) > CONTENT_WIDTH - 4:
-                    truncated = ""
-                    current_w = 0
-                    for ch in display:
-                        ch_w = 2 if unicodedata.east_asian_width(ch) in ('F','W') else 1
-                        if current_w + ch_w > CONTENT_WIDTH - 7:
-                            break
-                        truncated += ch
-                        current_w += ch_w
-                    display = truncated + "..."
-                line(f"- {display}")
+                # Truncate if too long
+                if len(display) > BORDER_WIDTH - 6:
+                    display = display[:BORDER_WIDTH - 9] + "..."
+                lines.append(f"  - {display}")
             if len(files) > len(preview):
-                line(f"… (+{len(files)-len(preview)} more)")
+                lines.append(f"  ... (+{len(files)-len(preview)} more)")
         else:
-            line(str(result))
+            lines.append(str(result))
     # Read file result
     elif func_name == "read_file" and isinstance(result, dict):
         content = result.get("content", "")
         if isinstance(content, str):
-            lines = content.splitlines()
-            line(f"Read {len(lines)} line(s)")
-            if lines:
-                first = lines[0]
-                if display_width(first) > CONTENT_WIDTH - 12:
-                    first = first[:CONTENT_WIDTH-15] + "..."
-                line(f"First: {first}")
+            content_lines = content.splitlines()
+            lines.append(f"Read {len(content_lines)} line(s)")
+            if content_lines:
+                first = content_lines[0]
+                if len(first) > BORDER_WIDTH - 14:
+                    first = first[:BORDER_WIDTH - 17] + "..."
+                lines.append(f"  First: {first}")
         else:
-            line("(No content)")
+            lines.append("(No content)")
     # Create/Update/Delete/Rename results
     elif func_name in ("create_file", "update_file", "delete_file", "rename_file"):
         if isinstance(result, dict):
             if "success" in result:
                 status = "✓ Success" if result["success"] else "✗ Failed"
-                line(status)
+                lines.append(status)
             if "message" in result:
-                line(result["message"])
+                lines.append(result["message"])
             if "path" in result:
-                line(f"Path: {result['path']}")
+                path = result['path']
+                if len(path) > BORDER_WIDTH - 10:
+                    path = path[:BORDER_WIDTH - 13] + "..."
+                lines.append(f"  Path: {path}")
         else:
-            line(str(result))
+            lines.append(str(result))
     # Shell/Execute results
     elif func_name in ("shell", "execute_file", "run_command"):
         if isinstance(result, dict):
             if "success" in result:
                 status = "✓ Success" if result["success"] else "✗ Failed"
-                line(status)
+                lines.append(status)
             if "output" in result:
                 output = result["output"]
                 # Truncate long output
@@ -587,23 +568,24 @@ def print_tool_result(func_name: str, result: Dict[str, Any]):
                 # Show first few lines
                 output_lines = output.splitlines()[:5]
                 for out_line in output_lines:
-                    if display_width(out_line) > CONTENT_WIDTH - 4:
-                        out_line = out_line[:CONTENT_WIDTH-7] + "..."
-                    line(out_line)
+                    if len(out_line) > BORDER_WIDTH - 4:
+                        out_line = out_line[:BORDER_WIDTH - 7] + "..."
+                    lines.append(f"  {out_line}")
                 if len(output.splitlines()) > 5:
-                    line("… (output truncated)")
+                    lines.append("  ... (output truncated)")
             if "exit_code" in result:
-                line(f"Exit code: {result['exit_code']}")
+                lines.append(f"  Exit code: {result['exit_code']}")
         else:
-            line(str(result))
+            lines.append(str(result))
     # Generic fallback
     else:
         raw = json.dumps(result, ensure_ascii=False) if isinstance(result, dict) else str(result)
-        if display_width(raw) > CONTENT_WIDTH - 1:
-            raw = raw[:CONTENT_WIDTH-4] + "..."
-        line(raw)
-
-    print(bottom, file=sys.stderr)
+        if len(raw) > BORDER_WIDTH - 4:
+            raw = raw[:BORDER_WIDTH - 7] + "..."
+        lines.append(raw)
+    
+    # Print using print_box
+    print_box(lines, title=f"{func_name.upper().replace('_', ' ')} RESULT")
 
 def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = False) -> bool:
     """
@@ -612,102 +594,62 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     
     Note: This function intentionally displays operation details to stderr for user confirmation.
     All sensitive data is sanitized via sanitize_for_display() before display.
-    This is not logging - it's an interactive confirmation prompt.
+    This is not logging - it is an interactive confirmation prompt.
     """
     # Nếu đã chọn "always accept", tự động chấp nhận
     if SESSION_STATE["always_accept"]:
         return True
     
-    BORDER_WIDTH = get_terminal_width()
-    border = "╭" + "─" * BORDER_WIDTH + "╮"
-    bottom = "╰" + "─" * BORDER_WIDTH + "╯"
-    CONTENT_WIDTH = BORDER_WIDTH
-    
-    # Print confirmation box
-    print(border, file=sys.stderr)
-    line = "│ ? Confirm Action "
-    padding = CONTENT_WIDTH - display_width(line)
-    print(f"{line}{' ' * padding} │", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
+    lines = []
     
     # Format thông tin dựa trên action (with sanitization)
     if action == "create_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        line = f"│  📝 Create: {safe_path} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        lines.append(f"[CREATE] {safe_path}")
         content = sanitize_for_display(details.get('content', ''), 50)
-        line = f"│     Content: {content} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        lines.append(f"  Content: {content}")
     elif action == "update_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
         mode = details.get('mode', 'overwrite')
-        line = f"│  ✏️  Update: {safe_path} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding}  │", file=sys.stderr)
-        line = f"│     Mode: {mode} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        lines.append(f"[UPDATE] {safe_path}")
+        lines.append(f"  Mode: {mode}")
     elif action == "delete_file":
         file_path = details.get('file_path', '')
         safe_path = sanitize_for_display(file_path, 60)
-        line = f"│  🗑️  Delete: {safe_path} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding}  │", file=sys.stderr)
+        lines.append(f"[DELETE] {safe_path}")
     elif action == "rename_file":
         old_path = sanitize_for_display(details.get('old_path', ''), 60)
         new_path = sanitize_for_display(details.get('new_path', ''), 60)
-        line = "│  📝 Rename: "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
-        line = f"│     From: {old_path} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
-        line = f"│     To: {new_path} "
-        padding = CONTENT_WIDTH - display_width(line)
-        print(f"{line}{' ' * padding} │", file=sys.stderr)
+        lines.append("[RENAME]")
+        lines.append(f"  From: {old_path}")
+        lines.append(f"  To: {new_path}")
     elif action == "shell":
         shell_action = details.get('action', '')
         if shell_action == "command":
             command = sanitize_for_display(details.get('command', ''), 60)
-            line = f"│  ⚡ Shell: {command} "
-            padding = CONTENT_WIDTH - display_width(line)
-            print(f"{line}{' ' * padding} │", file=sys.stderr)
+            lines.append(f"[SHELL] {command}")
         elif shell_action == "file":
             file_path = sanitize_for_display(details.get('file_path', ''), 60)
-            line = f"│  ▶️  Execute: {file_path} "
-            padding = CONTENT_WIDTH - display_width(line)
-            print(f"{line}{' ' * padding} │", file=sys.stderr)
+            lines.append(f"[EXEC] {file_path}")
             if details.get('args'):
                 args = sanitize_for_display(details.get('args', ''), 50)
-                line = f"│     Args: {args} "
-                padding = CONTENT_WIDTH - display_width(line)
-                print(f"{line}{' ' * padding} │", file=sys.stderr)
+                lines.append(f"  Args: {args}")
         if details.get('working_dir'):
             working_dir = sanitize_for_display(details.get('working_dir', ''), 55)
-            line = f"│     Working dir: {working_dir} "
-            padding = CONTENT_WIDTH - display_width(line)
-            print(f"{line}{' ' * padding} │", file=sys.stderr)
+            lines.append(f"  Working dir: {working_dir}")
     
-    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
-    line = "│ Allow execution? "
-    padding = CONTENT_WIDTH - display_width(line)
-    print(f"{line}{' ' * padding} │", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
-    line = "│ ● 1. Yes, allow once "
-    padding = CONTENT_WIDTH - display_width(line)
-    print(f"{line}{' ' * padding} │", file=sys.stderr)
-    line = "│   2. Yes, allow always "
-    padding = CONTENT_WIDTH - display_width(line)
-    print(f"{line}{' ' * padding} │", file=sys.stderr)
-    line = "│   3. No, cancel (esc) "
-    padding = CONTENT_WIDTH - display_width(line)
-    print(f"{line}{' ' * padding} │", file=sys.stderr)
-    print(f"│{' ' * CONTENT_WIDTH} │", file=sys.stderr)
-    print(bottom, file=sys.stderr)
+    lines.append("")
+    lines.append("Allow execution?")
+    lines.append("")
+    lines.append("  1. Yes, allow once")
+    lines.append("  2. Yes, allow always")
+    lines.append("  3. No, cancel (esc)")
+    lines.append("")
+    
+    # Print using print_box
+    print_box(lines, title="? CONFIRM ACTION")
     print("Choice: ", end='', file=sys.stderr, flush=True)
     
     # Đọc input từ user
@@ -948,12 +890,13 @@ def main():
             print("❌ Lỗi: Chưa thiết lập GEMINI_API_KEY!", file=sys.stderr)
             sys.exit(1)
         
-        # Load chat history for context
-        chat_history = load_chat_history()
-        debug_print(f"Loaded {len(chat_history)} messages from history")
+        # Load chat history for context (DISABLED to avoid stale data)
+        # chat_history = load_chat_history()
+        # debug_print(f"Loaded {len(chat_history)} messages from history")
+        chat_history = []  # Always start fresh
         
         # Initialize conversation with history + new message
-        conversation = chat_history + [
+        conversation = [
             {
                 "role": "user",
                 "parts": [{"text": user_message}]
@@ -1010,10 +953,10 @@ def main():
                 # Final response from Gemini
                 print(value)
                 
-                # Save chat history (exclude initial history, only new conversation)
-                new_messages = conversation[len(chat_history):]
-                updated_history = chat_history + new_messages
-                save_chat_history(updated_history)
+                # Save chat history (DISABLED - not needed without context memory)
+                # new_messages = conversation[len(chat_history):]
+                # updated_history = chat_history + new_messages
+                # save_chat_history(updated_history)
                 
                 sys.exit(0)
                 
