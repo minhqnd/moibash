@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# main.sh - Giao diện Chat Client
+# moibash.sh - Giao diện Chat Client
 # Môn: Hệ Điều Hành
 # Chat Agent Terminal Interface
 
@@ -16,11 +16,17 @@ GRAY='\033[0;90m'
 RESET='\033[0m'
 BOLD='\033[1m'
 
+# Lấy thư mục chứa script (để hỗ trợ symlink)
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
+
 # Đường dẫn đến agent
-ROUTER_SCRIPT="./router.sh"
+ROUTER_SCRIPT="$SCRIPT_DIR/router.sh"
 
 # File lưu lịch sử chat (tạm thời trong session)
-CHAT_HISTORY="./chat_history_$$.txt"
+CHAT_HISTORY="$SCRIPT_DIR/chat_history_$$.txt"
+
+# Version
+VERSION="1.0.0"
 
 # Hàm parse markdown để hiển thị đầy đủ markdown
 parse_markdown() {
@@ -130,6 +136,36 @@ show_help() {
     echo -e "${CYAN}  /clear${RESET}  - Xóa màn hình và lịch sử chat"
     echo -e "${CYAN}  /exit, /quit${RESET}   - Thoát chương trình"
     echo ""
+}
+
+# Hàm hiển thị version
+show_version() {
+    echo -e "${CYAN}${BOLD}moibash${RESET} version ${YELLOW}${VERSION}${RESET}"
+    echo -e "Repository: ${BLUE}https://github.com/minhqnd/moibash${RESET}"
+}
+
+# Hàm hiển thị usage
+show_usage() {
+    cat << EOF
+${CYAN}${BOLD}Moibash${RESET} - AI Chat Agent với Function Calling
+
+${YELLOW}${BOLD}Usage:${RESET}
+  moibash               Khởi động chat interface
+  moibash --help        Hiển thị hướng dẫn sử dụng
+  moibash --version     Hiển thị phiên bản
+  moibash --update      Cập nhật từ GitHub
+
+${YELLOW}${BOLD}Trong chat:${RESET}
+  /help                 Danh sách lệnh
+  /clear                Xóa màn hình
+  /exit, /quit          Thoát
+
+${YELLOW}${BOLD}Examples:${RESET}
+  moibash                           # Bắt đầu chat
+  moibash --update                  # Cập nhật phiên bản mới
+
+${BLUE}Repository:${RESET} https://github.com/minhqnd/moibash
+EOF
 }
 
 # Hàm lấy thời gian hiện tại
@@ -303,10 +339,40 @@ trap cleanup SIGINT SIGTERM
 # MAIN PROGRAM
 # ============================================
 
-# Kiểm tra agent.sh có tồn tại không
+# Xử lý command line arguments
+case "${1:-}" in
+    --help|-h)
+        show_usage
+        exit 0
+        ;;
+    --version|-v)
+        show_version
+        exit 0
+        ;;
+    --update|-u)
+        echo -e "${CYAN}${BOLD}🔄 Đang cập nhật moibash...${RESET}"
+        if [ -f "$SCRIPT_DIR/update.sh" ]; then
+            exec "$SCRIPT_DIR/update.sh"
+        else
+            echo -e "${RED}❌ Lỗi: Không tìm thấy script update.sh${RESET}"
+            echo -e "${YELLOW}Vui lòng chạy: cd $SCRIPT_DIR && git pull${RESET}"
+            exit 1
+        fi
+        ;;
+    "")
+        # Không có arguments, chạy chat bình thường
+        ;;
+    *)
+        echo -e "${RED}❌ Lỗi: Tham số không hợp lệ: $1${RESET}"
+        echo -e "${YELLOW}Chạy 'moibash --help' để xem hướng dẫn${RESET}"
+        exit 1
+        ;;
+esac
+
+# Kiểm tra router.sh có tồn tại không
 if [ ! -f "$ROUTER_SCRIPT" ]; then
-    echo -e "${RED}${BOLD}❌ LỖI:${RESET} Không tìm thấy file agent.sh!"
-    echo -e "${YELLOW}Vui lòng đảm bảo agent.sh nằm cùng thư mục với main.sh${RESET}"
+    echo -e "${RED}${BOLD}❌ LỖI:${RESET} Không tìm thấy file router.sh!"
+    echo -e "${YELLOW}Vui lòng đảm bảo router.sh nằm trong: $SCRIPT_DIR${RESET}"
     exit 1
 fi
 

@@ -21,7 +21,7 @@ ENV_FILE = SCRIPT_DIR / "../../.env"
 HISTORY_FILE = SCRIPT_DIR / "../../chat_history_filesystem.txt"
 MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
 MAX_HISTORY_MESSAGES = 10  # Keep last 10 messages for context
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 # Session state for "always accept"
 SESSION_STATE = {
