@@ -146,12 +146,14 @@ class BackupManager:
                     # Restore old content
                     if original_path.exists():
                         original_path.unlink()
+                    original_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(backup_path, original_path)
                     restored += 1
                     
                 elif operation == "delete":
                     # Restore deleted file
                     if op.get("is_directory", False):
+                        original_path.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copytree(backup_path, original_path)
                     else:
                         shutil.copy2(backup_path, original_path)
@@ -162,7 +164,10 @@ class BackupManager:
                     new_path = Path(op.get("new_path", ""))
                     if new_path.exists():
                         new_path.unlink() if new_path.is_file() else shutil.rmtree(new_path)
-                    shutil.copy2(backup_path, original_path)
+                    if op.get("is_directory", False):
+                        shutil.copytree(backup_path, original_path)
+                    else:
+                        shutil.copy2(backup_path, original_path)
                     restored += 1
                 
             except Exception as e:
@@ -186,6 +191,7 @@ class BackupManager:
         try:
             if self.backup_dir.exists():
                 shutil.rmtree(self.backup_dir)
+            self.backup_dir.mkdir(parents=True, exist_ok=True)
             self.manifest = {"operations": [], "session_pid": self.session_pid}
         except Exception as e:
             print(f"Warning: Could not clear backups: {e}", file=sys.stderr)
@@ -197,8 +203,6 @@ def get_backup_manager() -> BackupManager:
 
 
 if __name__ == "__main__":
-    import sys
-    
     # CLI interface for backup manager
     if len(sys.argv) < 2:
         print("Usage: backup_manager.py <command> [args...]")
