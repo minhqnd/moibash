@@ -272,7 +272,8 @@ Mẹo để bắt đầu:
 3. Tạo file MOIBASH.md để tùy chỉnh tương tác của bạn với MOIBASH.
 4. ${GREEN}${BOLD}/help${RESET} để xem danh sách lệnh
 5. ${GREEN}${BOLD}!<lệnh>${RESET} để chạy lệnh shell trực tiếp (ví dụ: ${GRAY}!ls -la${RESET})
-6. Thoát bằng ${GREEN}${BOLD}/exit${RESET} hoặc ${GREEN}${BOLD}/quit${RESET}"
+6. ${GREEN}${BOLD}/rollback${RESET} để hoàn tác các thay đổi file (tính năng mới!)
+7. Thoát bằng ${GREEN}${BOLD}/exit${RESET} hoặc ${GREEN}${BOLD}/quit${RESET}"
     echo ""
 }
 
