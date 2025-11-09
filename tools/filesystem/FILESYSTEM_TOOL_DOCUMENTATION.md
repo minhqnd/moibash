@@ -1,3 +1,186 @@
+# 📁 Filesystem Tool — Tài liệu (Phiên bản rút gọn & cập nhật)
+
+## Tổng quan
+
+Filesystem Tool là bộ công cụ thao tác file được tích hợp trong dự án **moibash**. Mục tiêu của tài liệu này là cung cấp một hướng dẫn ngắn gọn, thực dụng cho các chức năng chính, quy trình an toàn (confirmation), ví dụ phổ biến và cách debug nhanh.
+
+Phiên bản này tập trung vào: rõ ràng, ví dụ có thể chạy được, và quy tắc an toàn khi thực thi lệnh/sửa file.
+
+---
+
+## Kiến trúc & Flow hoạt động (tóm tắt)
+
+- Agent (chat) → `function_call.py` → shell scripts (`*.sh`) → File system
+- Mọi thao tác nguy hiểm (create/update/delete/execute) phải qua hệ thống xác nhận (confirmation) theo session.
+
+Luồng cơ bản:
+1. Người dùng yêu cầu (ví dụ: "đọc file X").
+2. Agent gọi hàm tương ứng (ví dụ: read_file).
+3. Hệ thống hiển thị thông báo/preview (nếu thay đổi). Người dùng chọn: 1) Allow once, 2) Allow always (session), 3) Cancel.
+4. Nếu được phép: shell script chạy, kết quả trả về agent dưới dạng JSON + Markdown.
+
+---
+
+## Chức năng có sẵn (API nhanh)
+
+Tất cả hàm trả về cấu trúc JSON chung: { success: boolean, content?: string, files?: [], output?: string, exit_code?: number, error?: string, path?: string }
+
+- read_file(file_path, start_line?: int, end_line?: int)
+  - Đọc file. Nếu lớn, ưu tiên đọc theo khúc (chunks).
+  - Ví dụ: read_file("/full/path/to/file.txt")
+
+- create_file(file_path, content)
+  - Tạo file mới (text). Triggers confirmation.
+
+- update_file(file_path, content, mode = "overwrite"|"append")
+  - overwrite: thay toàn bộ; append: thêm vào cuối. Hiển thị diff preview.
+
+- delete_file(file_path)
+  - Xóa file hoặc thư mục. Yêu cầu confirmation.
+
+- rename_file(old_path, new_path)
+  - Đổi tên/move. Yêu cầu confirmation.
+
+- list_files(dir_path, pattern = "*", recursive = false)
+  - Trả về danh sách file/folder.
+
+- search_files(dir_path, pattern, recursive = false)
+  - Tìm theo pattern. Trả về danh sách file matching.
+
+- shell(action = "command"|"file", target, args = "", working_dir = "")
+  - action="command": chạy shell command (khuyến nghị).
+  - action="file": chạy script file (ít dùng, có rủi ro đường dẫn).
+  - Ví dụ: shell("command","ls -la /tmp")
+
+---
+
+## Quy tắc an toàn (Security & Confirmation)
+
+- Bắt buộc validation đường dẫn: ưu tiên đường dẫn tuyệt đối; chặn path traversal và các thư mục hệ thống (`/etc`, `/root`, ...).
+- Trước khi thực hiện các hành động destructive (create/update/delete/execute), hệ thống sẽ yêu cầu xác nhận theo 3 lựa chọn: 1 (Allow once), 2 (Allow always trong session), 3 (Cancel).
+- Trước khi ghi đè hoặc xóa, tạo bản backup tạm `file.ext.bak` nếu có thể.
+
+Path checks mẫu:
+- Không cho phép `..` trong path.
+- Bắt buộc path bắt đầu bằng `/` hoặc repo-relative dựa trên cấu hình agent.
+
+---
+
+## Diff preview
+
+- Khi update (overwrite), agent hiển thị Git-style diff (hunk header, dòng thêm/bớt). Mục đích: user kiểm tra trước khi confirm.
+- Khi append, chỉ hiển thị phần thêm.
+
+Ví dụ preview (ký hiệu):
+
+--- a/file.txt
+++ b/file.txt
+@@ -1,3 +1,4 @@
+- Dòng cũ
++ Dòng mới
+
+---
+
+## Auto-fix & Test Loop (tóm tắt)
+
+Hệ thống hỗ trợ một vòng lặp tối đa 3 lần để tự sửa lỗi thông dụng (syntax, import, small logic fixes) kèm test cơ bản. Quy trình:
+1. Đọc file → phát hiện lỗi.
+2. Gợi ý sửa → áp dụng (local) → chạy test nhanh (ví dụ: `python -m py_compile file.py` hoặc `bash -n script.sh`).
+3. Nếu pass → commit thay đổi (hoặc apply) → báo kết quả.
+4. Nếu fail → tối đa 3 lần thử, sau đó dừng và báo lỗi.
+
+Lưu ý: chỉ áp dụng auto-fix cho các lỗi có độ an toàn cao. Thay đổi logic lớn cần review thủ công.
+
+---
+
+## Kiểm tra nhanh theo ngôn ngữ (recipes)
+
+- Python: `python -m py_compile file.py` → `python -c "import file"` → `pytest` nếu có tests.
+- Shell: `bash -n script.sh` (syntax), `shellcheck` (lint).
+- JS/TS: `node --check file.js`, `npx tsc --noEmit` (TypeScript), `npx eslint`.
+
+---
+
+## Best practices (tóm tắt)
+
+- Dùng đường dẫn tuyệt đối.
+- Đọc lớn theo chunk cho file lớn.
+- Dùng `shell("command", "...")` thay vì `file` khi có thể.
+- Backup trước khi overwrite/xóa.
+- Hạn chế granting "Allow always" trừ khi tin tưởng session.
+
+---
+
+## Quick start (thử nhanh)
+
+1. Đảm bảo script có quyền thực thi:
+
+```bash
+chmod +x tools/filesystem/*.sh
+```
+
+2. Thử đọc file mẫu:
+
+```bash
+./tools/filesystem/function_call.py "liệt kê thư mục tools"
+```
+
+3. Tạo file thử (agent sẽ hỏi confirm):
+
+```bash
+echo "1" | ./tools/filesystem/function_call.py "tạo file demo.txt với nội dung Hello"
+```
+
+---
+
+## Ví dụ JSON response (mẫu)
+
+Success:
+
+```json
+{ "success": true, "content": "...", "path": "/full/path" }
+```
+
+Error:
+
+```json
+{ "success": false, "error": "File not found: /path/to/file", "exit_code": 1 }
+```
+
+---
+
+## Troubleshooting nhanh
+
+- "File not found": kiểm tra path, dùng `ls -la`.
+- "Permission denied": kiểm tra quyền, `ls -la` và owner; nếu cần, chạy bằng user có quyền (không recommend sudo tự động).
+- "Command not found": kiểm tra PATH hoặc dùng đường dẫn đầy đủ tới binary.
+
+---
+
+## API Reference (hàm và chữ ký)
+
+def read_file(file_path: str, start_line: int = None, end_line: int = None) -> Dict
+def create_file(file_path: str, content: str) -> Dict
+def update_file(file_path: str, content: str, mode: str = "overwrite") -> Dict
+def delete_file(file_path: str) -> Dict
+def rename_file(old_path: str, new_path: str) -> Dict
+def list_files(dir_path: str, pattern: str = "*", recursive: bool = False) -> Dict
+def search_files(dir_path: str, pattern: str, recursive: bool = False) -> Dict
+def shell(action: str, target: str, args: str = "", working_dir: str = "") -> Dict
+
+---
+
+## Gợi ý cải tiến tiếp theo (nên làm)
+
+1. Thêm ví dụ cụ thể cho từng hàm ở cuối file (sample payloads).
+2. Viết test unit cho `function_call.py` để mock các lệnh shell.
+3. Tích hợp `shellcheck` / `flake8` trong CI để bảo đảm chất lượng script shell/python.
+
+---
+
+**Phiên bản**: 2.2 (rút gọn & cập nhật)
+**Last Updated**: 2025-11-10
+**Author**: moibash — tooling team
 # 📁 Filesystem Tool Documentation
 
 ## Tổng quan
@@ -11,7 +194,7 @@ Filesystem Tool là một hệ thống quản lý file thông minh được tíc
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Code Agent    │───▶│  function_call   │───▶│  Shell Scripts  │
-│   (Gemini AI)   │    │  .py (Python)    │    │  (.sh files)     │
+│   (Gemini AI)   │    │  .py (Python)    │    │  (.sh files)    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                               │
                               ▼
