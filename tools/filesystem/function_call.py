@@ -15,6 +15,13 @@ import requests
 import time
 import re
 
+# Import backup manager
+try:
+    from backup_manager import BackupManager
+except ImportError:
+    # Fallback if import fails
+    BackupManager = None
+
 # Constants
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / "../../.env"
@@ -36,10 +43,18 @@ GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini
 # Get user's current working directory (where moibash was called from)
 USER_WORKING_DIR = os.environ.get('MOIBASH_USER_PWD', os.getcwd())
 
-# Session state for "always accept"
+# Session state for "always accept" and backup manager
 SESSION_STATE = {
-    "always_accept": False
+    "always_accept": False,
+    "backup_manager": None
 }
+
+# Initialize backup manager
+def get_backup_manager():
+    """Get or initialize backup manager for current session"""
+    if SESSION_STATE["backup_manager"] is None and BackupManager is not None:
+        SESSION_STATE["backup_manager"] = BackupManager()
+    return SESSION_STATE["backup_manager"]
 
 # Load environment variables
 def load_env():
@@ -1269,7 +1284,13 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     elif func_name == "update_file":
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
+        
+        # Create backup before update
         file_path = args.get("file_path", "")
+        backup_mgr = get_backup_manager()
+        if backup_mgr and Path(file_path).exists():
+            backup_mgr.backup_file(file_path, "update")
+        
         content = args.get("content", "")
         mode = args.get("mode", "overwrite")
         result = call_filesystem_script("updatefile", file_path, content, mode)
@@ -1278,7 +1299,13 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     elif func_name == "delete_file":
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
+        
+        # Create backup before delete
         file_path = args.get("file_path", "")
+        backup_mgr = get_backup_manager()
+        if backup_mgr and Path(file_path).exists():
+            backup_mgr.backup_file(file_path, "delete")
+        
         result = call_filesystem_script("deletefile", file_path)
         # Gộp action + result vào 1 box cho delete_file
         print_delete_file(file_path, result)
@@ -1286,8 +1313,14 @@ def handle_function_call(func_name: str, args: Dict[str, Any]) -> Dict[str, Any]
     elif func_name == "rename_file":
         if not get_confirmation(func_name, args):
             return {"error": "User cancelled", "cancelled": True}
+        
+        # Create backup before rename
         old_path = args.get("old_path", "")
         new_path = args.get("new_path", "")
+        backup_mgr = get_backup_manager()
+        if backup_mgr and Path(old_path).exists():
+            backup_mgr.backup_file(old_path, "rename", new_path=new_path)
+        
         result = call_filesystem_script("renamefile", old_path, new_path)
         print_tool_result(func_name, result)
         
