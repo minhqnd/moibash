@@ -29,7 +29,7 @@ else:
         HISTORY_FILE = max(history_files, key=lambda p: p.stat().st_mtime)
     else:
         HISTORY_FILE = None
-MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '15'))
+MAX_ITERATIONS = int(os.environ.get('FILESYSTEM_MAX_ITERATIONS', '50'))
 MAX_HISTORY_MESSAGES = 10  # Keep last 10 messages for context
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
@@ -1106,7 +1106,11 @@ def parse_response(response: Dict) -> tuple:
     """
     Parse Gemini response
     Returns: (response_type, value, extra)
-    Types: FUNCTION_CALL, TEXT, NO_RESPONSE, ERROR
+    Types: FUNCTION_CALL, TEXT_WITH_CALL, TEXT, NO_RESPONSE, ERROR
+    
+    Priority:
+    1. FUNCTION_CALL - has function call (may have text comment too)
+    2. TEXT - pure text response (final response, should exit)
     """
     if not response:
         return ("ERROR", "No response from API", None)
@@ -1132,18 +1136,26 @@ def parse_response(response: Dict) -> tuple:
     content = candidate.get("content", {})
     parts = content.get("parts", [])
     
-    # Check for function call
+    # Collect both function calls and text
+    func_call = None
+    text_content = None
+    
     for part in parts:
         if "functionCall" in part:
             func_call = part["functionCall"]
-            func_name = func_call.get("name", "")
-            func_args = func_call.get("args", {})
-            return ("FUNCTION_CALL", func_name, func_args)
-    
-    # Check for text response
-    for part in parts:
         if "text" in part:
-            return ("TEXT", part["text"], None)
+            text_content = part["text"]
+    
+    # Priority: Function call (with optional text comment)
+    if func_call:
+        func_name = func_call.get("name", "")
+        func_args = func_call.get("args", {})
+        # Return function call, with text as extra info
+        return ("FUNCTION_CALL", func_name, {"args": func_args, "comment": text_content})
+    
+    # Pure text response (final response)
+    if text_content:
+        return ("TEXT", text_content, None)
     
     # No content but check finish reason
     if finish_reason:
@@ -1227,7 +1239,13 @@ def main():
             if response_type == "FUNCTION_CALL":
                 tool_calls_made += 1
                 func_name = value
-                func_args = extra
+                extra_data = extra
+                func_args = extra_data.get("args", {})
+                comment = extra_data.get("comment")
+                
+                # Print AI comment if exists (nhận xét giữa chừng)
+                if comment:
+                    print(f"\n💬 {comment}\n", file=sys.stderr)
                 
                 # Execute function (với confirmation nếu cần)
                 func_result = handle_function_call(func_name, func_args)
@@ -1281,8 +1299,9 @@ def main():
                 print(f"❌ Lỗi: {value}", file=sys.stderr)
                 sys.exit(1)
         
-            print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
-            sys.exit(1)
+        # Chỉ đến đây khi vòng lặp hết ITERATIONS mà không exit
+        print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
+        sys.exit(1)
     
     except KeyboardInterrupt:
         print("\n\n❌ Đã hủy bởi user (Ctrl+C)", file=sys.stderr)
