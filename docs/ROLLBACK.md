@@ -125,7 +125,7 @@ Tổng số thao tác: 10
 ### ⚠️ Hạn chế
 - Rollback là "all-or-nothing" - rollback toàn bộ session, không thể chọn từng file
 - Backup lưu trong `/tmp/` nên có thể bị xóa khi reboot
-- Nếu sửa cùng file nhiều lần, chỉ có backup đầu tiên được giữ (restore về trạng thái ban đầu nhất)
+- Nếu sửa cùng file nhiều lần, mỗi lần đều được backup riêng biệt (có thể restore về bất kỳ trạng thái nào trong session)
 
 ## License
 Tính năng này là một phần của moibash project, sử dụng MIT License.
