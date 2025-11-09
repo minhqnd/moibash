@@ -106,31 +106,43 @@ You are a CODE AGENT - intelligent programming assistant with file system access
 
 ## Core Rules
 
-### 1. Proactive Execution
+### 1. Function Call Explanations (Recommended)
+If possible, briefly explain your function calls (purpose, expected result, and what you do next), but keep it concise and avoid unnecessary repetition. You do NOT need to use a strict format or always reply with explanations—just help the user follow your reasoning when it adds value.
+
+**Optional Example:**
+```
+→ Gọi read_file("main.py") để phân tích code
+[Function executes...]
+→ Đã đọc 150 dòng, sẽ tóm tắt các function chính
+```
+
+Short, relevant explanations help users understand your process and build trust, but don't waste tokens on unnecessary details.
+
+### 2. Proactive Execution
 - Execute immediately - NO "Do you want...", "Are you sure..."
 - Complete ALL steps for multi-step tasks (e.g., create crontab = create file + chmod + add to crontab + verify)
 - Always test after code modifications
 - Iterate up to 3 times if tests fail
 
-### 2. Smart File Finding (Ambiguous Requests)
+### 3. Smart File Finding (Ambiguous Requests)
 When user says "read the file", "analyze code" without specifying:
 1. Search with `search_files()` or `list_files()`
 2. Pick best match: main.py > index.js > app.py > test files
 3. Execute and complete full request
 
-### 3. Verify Before Delete/Rename
+### 4. Verify Before Delete/Rename
 - ALWAYS search first: `search_files(".", "filename", recursive=true)`
 - If not found → Report error
 - If found → Use absolute path from search result
 
-### 4. Test After Modifications
+### 5. Test After Modifications
 ```
 Fix workflow:
 1. read_file → 2. Analyze bugs → 3. update_file → 4. shell("python file.py")
 5. Check exit_code → 6. If fail, retry (max 3x) → 7. Report results
 ```
 
-### 5. Shell Commands
+### 6. Shell Commands
 - Direct execution: `shell("command", "python test.py")`
 - For background processes: `cmd > /tmp/log 2>&1 & echo $! > /tmp/pid; sleep 3; curl localhost:3000`
 - Crontab: `(crontab -l 2>/dev/null; echo "schedule command") | crontab -`
@@ -465,39 +477,76 @@ def debug_print(*args, **kwargs):
     if DEBUG:
         print("[DEBUG]", *args, file=sys.stderr, **kwargs)
 
-def format_markdown_simple(text: str) -> str:
+def format_markdown(text: str) -> str:
     """
     Format markdown text for terminal display (simple inline formatting)
     Handles: **bold**, *italic*, `code`, but NOT multi-line structures
     """
     if not text:
         return text
-    
-    # Clean up excessive newlines (more than 2 consecutive newlines → 1 blank line)
     import re
     text = re.sub(r'\n{3,}', '\n\n', text)
-    
-    # Process line by line
     lines = text.split('\n')
     formatted_lines = []
-    
+    in_code_block = False
+    code_lang = ""
     for line in lines:
-        # Skip code blocks and complex structures - just pass through
-        if line.strip().startswith('```') or line.strip().startswith('#'):
-            formatted_lines.append(line)
+        # Code block start/end
+        code_block_match = re.match(r'^```(\w*)', line)
+        if code_block_match:
+            if not in_code_block:
+                in_code_block = True
+                code_lang = code_block_match.group(1)
+                if code_lang:
+                    formatted_lines.append(f"{CYAN}{BOLD}┌─ Code: {code_lang}{RESET}")
+                else:
+                    formatted_lines.append(f"{CYAN}{BOLD}┌─ Code{RESET}")
+            else:
+                in_code_block = False
+                formatted_lines.append(f"{CYAN}{BOLD}└─{RESET}")
             continue
-        
-        # Bold (**text**) - must be before italic
+        if in_code_block:
+            formatted_lines.append(f"{CYAN}│{RESET} {GRAY}{line}{RESET}")
+            continue
+        # Headings
+        m3 = re.match(r'^###\s+(.+)$', line)
+        m2 = re.match(r'^##\s+(.+)$', line)
+        m1 = re.match(r'^#\s+(.+)$', line)
+        if m3:
+            formatted_lines.append(f"{YELLOW}{BOLD}{m3.group(1)}{RESET}")
+            continue
+        elif m2:
+            formatted_lines.append(f"{CYAN}{BOLD}{m2.group(1)}{RESET}")
+            continue
+        elif m1:
+            formatted_lines.append(f"{BLUE}{BOLD}{m1.group(1)}{RESET}")
+            continue
+        # Bullet lists
+        bullet_match = re.match(r'^([ \t]*)[-\*][ \t](.+)$', line)
+        if bullet_match:
+            indent = bullet_match.group(1)
+            item = bullet_match.group(2)
+            item = re.sub(r'`([^`]*)`', f'{GRAY}\\1{RESET}', item)
+            item = re.sub(r'\*\*([^*]+)\*\*', f'{BOLD}\\1{RESET}', item)
+            item = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', f'\033[3m\\1{RESET}', item)
+            formatted_lines.append(f"{indent}{GREEN}●{RESET} {item}")
+            continue
+        # Numbered lists
+        num_match = re.match(r'^([ \t]*)([0-9]+)\.\s+(.+)$', line)
+        if num_match:
+            indent = num_match.group(1)
+            number = num_match.group(2)
+            item = num_match.group(3)
+            item = re.sub(r'`([^`]*)`', f'{GRAY}\\1{RESET}', item)
+            item = re.sub(r'\*\*([^*]+)\*\*', f'{BOLD}\\1{RESET}', item)
+            item = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', f'\033[3m\\1{RESET}', item)
+            formatted_lines.append(f"{indent}{CYAN}{number}.{RESET} {item}")
+            continue
+        # Inline formatting for regular lines
         line = re.sub(r'\*\*([^*]+)\*\*', f'{BOLD}\\1{RESET}', line)
-        
-        # Italic (*text*) - use negative lookahead/lookbehind
-        line = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', f'{DIM}\\1{RESET}', line)
-        
-        # Inline code (`code`)
+        line = re.sub(r'(?<!\*)\*([^*]+)\*(?!\*)', f'\033[3m\\1{RESET}', line)
         line = re.sub(r'`([^`]*)`', f'{GRAY}\\1{RESET}', line)
-        
         formatted_lines.append(line)
-    
     return '\n'.join(formatted_lines)
 
 
@@ -924,6 +973,8 @@ def show_diff_preview(old_content: str, new_content: str, file_path: str) -> Non
     """
     Hiển thị diff preview giống git với màu đỏ (xóa) và xanh (thêm)
     """
+    stop_spinner()
+    
     import difflib
     
     old_lines = old_content.splitlines(keepends=True)
@@ -979,6 +1030,8 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     All sensitive data is sanitized via sanitize_for_display() before display.
     This is not logging - it is an interactive confirmation prompt.
     """
+    stop_spinner()
+    
     # Nếu đã chọn "always accept", tự động chấp nhận
     if SESSION_STATE["always_accept"]:
         return True
@@ -1447,23 +1500,36 @@ def main():
                 # Print AI comment if exists (nhận xét giữa chừng)
                 # Format markdown và in ra stderr với flush để hiển thị ngay
                 if comment:
-                    # Strip leading/trailing whitespace and newlines
+                    stop_spinner()
                     comment = comment.strip()
-                    formatted_comment = format_markdown_simple(comment)
+                    formatted_comment = format_markdown(comment)
                     print(f"\n{CYAN}{formatted_comment}{RESET}\n", file=sys.stderr, flush=True)
+                    # Save to chat history as moiBash message
+                    if HISTORY_FILE:
+                        from datetime import datetime
+                        timestamp = datetime.now().strftime('%H:%M:%S')
+                        import re
+                        clean_comment = re.sub(r'\x1b\[[0-9;]*m', '', formatted_comment)
+                        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
+                            f.write(f'[{timestamp}] moiBash: {clean_comment}\n')
                 
                 # Execute function (với confirmation nếu cần)
                 func_result = handle_function_call(func_name, func_args)
                 
                 # Add model response with function call to conversation
+                # Include comment (text) if present
+                model_parts = []
+                if comment:
+                    model_parts.append({"text": comment})
+                model_parts.append({
+                    "functionCall": {
+                        "name": func_name,
+                        "args": func_args
+                    }
+                })
                 conversation.append({
                     "role": "model",
-                    "parts": [{
-                        "functionCall": {
-                            "name": func_name,
-                            "args": func_args
-                        }
-                    }]
+                    "parts": model_parts
                 })
                 
                 # Add function response to conversation
@@ -1484,6 +1550,7 @@ def main():
                 
             elif response_type == "TEXT":
                 # Final response from Gemini
+                stop_spinner()
                 print(value)
                 
                 # Save chat history (DISABLED - not needed without context memory)
@@ -1497,21 +1564,26 @@ def main():
                 # Debug: print full response to understand what's happening
                 if DEBUG and extra:
                     debug_print(f"NO_RESPONSE details: {json.dumps(extra, ensure_ascii=False, indent=2)}")
+                stop_spinner()
                 print("❌ Không nhận được phản hồi từ AI. Vui lòng thử lại hoặc bật DEBUG=1 để xem chi tiết.", file=sys.stderr)
                 sys.exit(1)
                 
             elif response_type == "ERROR":
+                stop_spinner()
                 print(f"❌ Lỗi: {value}", file=sys.stderr)
                 sys.exit(1)
         
         # Chỉ đến đây khi vòng lặp hết ITERATIONS mà không exit
+        stop_spinner()
         print(f"⚠️ Đã đạt giới hạn số lượng function calls ({MAX_ITERATIONS})", file=sys.stderr)
         sys.exit(1)
     
     except KeyboardInterrupt:
+        stop_spinner()
         print("\n\n❌ Đã hủy bởi user (Ctrl+C)", file=sys.stderr)
         sys.exit(130)  # Standard exit code for Ctrl+C
     except Exception as e:
+        stop_spinner()
         print(f"❌ Lỗi không mong đợi: {str(e)}", file=sys.stderr)
         if DEBUG:
             import traceback
