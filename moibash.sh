@@ -272,19 +272,26 @@ Mẹo để bắt đầu:
 3. Tạo file MOIBASH.md để tùy chỉnh tương tác của bạn với MOIBASH.
 4. ${GREEN}${BOLD}/help${RESET} để xem danh sách lệnh
 5. ${GREEN}${BOLD}!<lệnh>${RESET} để chạy lệnh shell trực tiếp (ví dụ: ${GRAY}!ls -la${RESET})
-6. Thoát bằng ${GREEN}${BOLD}/exit${RESET} hoặc ${GREEN}${BOLD}/quit${RESET}"
+6. ${GREEN}${BOLD}/rollback${RESET} để hoàn tác các thay đổi file (tính năng mới!)
+7. Thoát bằng ${GREEN}${BOLD}/exit${RESET} hoặc ${GREEN}${BOLD}/quit${RESET}"
     echo ""
 }
 
 # Hàm hiển thị help
 show_help() {
     echo -e "\n${YELLOW}${BOLD}📚 DANH SÁCH LỆNH:${RESET}"
-    echo -e "${CYAN}  /help${RESET}   - Hiển thị danh sách lệnh"
-    echo -e "${CYAN}  /clear${RESET}  - Xóa màn hình và lịch sử chat"
-    echo -e "${CYAN}  /exit, /quit${RESET}   - Thoát chương trình"
+    echo -e "${CYAN}  /help${RESET}            - Hiển thị danh sách lệnh"
+    echo -e "${CYAN}  /clear${RESET}           - Xóa màn hình và lịch sử chat"
+    echo -e "${CYAN}  /rollback${RESET}        - Hoàn tác tất cả thay đổi file trong session"
+    echo -e "${CYAN}  /rollback-status${RESET} - Xem danh sách file đã thay đổi"
+    echo -e "${CYAN}  /exit, /quit${RESET}     - Thoát chương trình"
     echo ""
     echo -e "${YELLOW}${BOLD}💡 TÍNH NĂNG:${RESET}"
     echo -e "${CYAN}  !<lệnh>${RESET} - Thực thi lệnh shell trực tiếp (ví dụ: ${GRAY}!ls -la${RESET})"
+    echo ""
+    echo -e "${YELLOW}${BOLD}🔄 ROLLBACK:${RESET}"
+    echo -e "  Tất cả thay đổi file (cập nhật, xóa, đổi tên) được backup tự động."
+    echo -e "  Dùng ${CYAN}/rollback${RESET} để khôi phục về trạng thái ban đầu của session."
     echo ""
 }
 
@@ -396,6 +403,41 @@ handle_command() {
             # Xóa lịch sử chat
             > "$CHAT_HISTORY"
             display_info "Đã xóa màn hình và lịch sử chat!"
+            return 0
+            ;;
+        /rollback)
+            # Rollback filesystem operations
+            echo -e "${YELLOW}${BOLD}🔄 Đang rollback các thao tác filesystem...${RESET}\n"
+            
+            # Call backup manager to rollback
+            local backup_script="$SCRIPT_DIR/tools/filesystem/backup_manager.py"
+            if [ -f "$backup_script" ]; then
+                local result=$("$backup_script" rollback 2>&1)
+                
+                # Parse result and display
+                if echo "$result" | grep -q '"success": true'; then
+                    local restored=$(echo "$result" | grep -o '"restored": [0-9]*' | grep -o '[0-9]*')
+                    echo -e "${GREEN}✅ Đã rollback thành công!${RESET}"
+                    echo -e "${BLUE}Khôi phục được $restored file về trạng thái ban đầu.${RESET}\n"
+                else
+                    local message=$(echo "$result" | grep -o '"message": "[^"]*"' | cut -d'"' -f4)
+                    echo -e "${YELLOW}ℹ️  $message${RESET}\n"
+                fi
+            else
+                display_error "Không tìm thấy backup manager!"
+            fi
+            return 0
+            ;;
+        /rollback-status)
+            # Show rollback status
+            local backup_script="$SCRIPT_DIR/tools/filesystem/backup_manager.py"
+            if [ -f "$backup_script" ]; then
+                echo -e "${CYAN}${BOLD}📋 Trạng thái Backup:${RESET}\n"
+                "$backup_script" list
+                echo ""
+            else
+                display_error "Không tìm thấy backup manager!"
+            fi
             return 0
             ;;
         /exit|/quit)

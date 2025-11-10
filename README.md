@@ -14,6 +14,7 @@ Moibash là một framework bash script cho phép tương tác với AI thông q
 
 - 🤖 **Chat thông minh**: Trò chuyện tự nhiên với AI
 - 📁 **Quản lý file**: Tạo, đọc, sửa, xóa file/folder an toàn
+- 🔄 **Rollback**: Hoàn tác thay đổi file, backup tự động (tính năng mới!)
 - 📅 **Quản lý lịch**: Tích hợp Google Calendar
 - 🌤️ **Thời tiết**: Tra cứu thời tiết theo địa điểm
 - 🎨 **Tạo ảnh**: Generate ảnh từ mô tả
@@ -154,7 +155,25 @@ Lựa chọn của bạn: y
 Output: Hello World
 ```
 
-### 3. Quản lý lịch
+### 3. Rollback (hoàn tác thay đổi)
+```
+➜ sửa file config.json, xóa dòng debug
+✅ Đã cập nhật config.json
+
+➜ chạy app
+❌ App crashed vì thiếu config!
+
+➜ /rollback
+🔄 Đang rollback các thao tác filesystem...
+✅ Đã rollback thành công!
+Khôi phục được 1 file về trạng thái ban đầu.
+
+➜ /rollback-status
+📋 Trạng thái Backup:
+Không có thao tác nào được backup (đã rollback)
+```
+
+### 4. Quản lý lịch
 ```
 ➜ thêm lịch họp team lúc 9h sáng mai
 ✅ Đã thêm lịch thành công!
@@ -162,7 +181,7 @@ Output: Hello World
 🕐 09:00 - 10:00 (ngày mai)
 ```
 
-### 4. Thời tiết
+### 5. Thời tiết
 ```
 ➜ thời tiết ở Hà Nội hôm nay thế nào?
 🌤️ Thông tin thời tiết tại Hà Nội, Vietnam
@@ -171,14 +190,14 @@ Output: Hello World
 💬 Phù hợp để đi dạo ngoài trời
 ```
 
-### 5. Tạo ảnh
+### 6. Tạo ảnh
 ```
 ➜ vẽ một con mèo dễ thương
 🎨 Đang tạo ảnh...
 ✅ Ảnh đã được tạo: images/cat_20241103_143022.png
 ```
 
-### 6. Tìm kiếm
+### 7. Tìm kiếm
 ```
 ➜ tin tức về AI mới nhất
 🔍 Tìm thấy 5 kết quả:
