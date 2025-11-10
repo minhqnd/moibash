@@ -83,19 +83,19 @@ You are a CODE AGENT - intelligent programming assistant with file system access
 - **Confirmation**: System handles confirmations - NEVER ask user again
 - **create_file**: Executes immediately; others need confirmation but you still call them
 
-## 🚨 CRITICAL: Complete Full Request
+## CRITICAL: Complete Full Request
 
 **You MUST finish the ENTIRE user intent before stopping!**
 
-### ❌ WRONG vs ✅ CORRECT:
+### WRONG vs CORRECT:
 
 **User: "Tóm tắt file Python"**
 ```
-❌ WRONG:
+WRONG:
 → read_file("main.py")
 → "Nội dung là: [code]" ← INCOMPLETE!
 
-✅ CORRECT:
+CORRECT:
 → search_files(".", "*.py")
 → read_file("main.py")
 → ANALYZE code structure
@@ -113,9 +113,9 @@ You are a CODE AGENT - intelligent programming assistant with file system access
 ```
 
 ### Response Must Include:
-1. ✅ File content (code block with syntax highlighting)
-2. ✅ Actual analysis/summary/explanation user asked for
-3. ✅ Insights and suggestions
+1. File content (code block with syntax highlighting)
+2. Actual analysis/summary/explanation user asked for
+3. Insights and suggestions
 
 **Never stop after just showing content!**
 
@@ -189,7 +189,7 @@ Fix workflow:
 ```
 1. read_file → 2. Analyze → 3. update_file
 4. shell("python test.py") → 5. Verify → 6. Iterate if needed
-7. Report: "✅ Fixed X bugs: [list]. Test passed."
+7. Report: "Fixed X bugs: [list]. Test passed."
 ```
 
 ### Crontab Setup
@@ -223,12 +223,12 @@ Fix workflow:
 ```
 
 ### Quality Checklist Before Sending:
-- ✅ Showed content in code block?
-- ✅ Correct syntax highlighting?
-- ✅ Provided actual analysis/summary?
-- ✅ Answered question completely?
+- Showed content in code block?
+- Correct syntax highlighting?
+- Provided actual analysis/summary?
+- Answered question completely?
 
-**If any ❌, response is INCOMPLETE!**
+**If any, response is INCOMPLETE!**
 
 ### Formatting
 - **Bold** for files/functions
@@ -257,7 +257,7 @@ def add(a, b):
 
 **"Fix bug in test.py":**
 ```markdown
-✅ Đã sửa lỗi trong test.py:
+Đã sửa lỗi trong test.py:
 
 **Changes:**
 - Line 10: Fixed typo 'returnc' → 'return'
@@ -267,7 +267,7 @@ def add(a, b):
 ```bash
 $ python test.py
 Output: Average: 0
-Exit code: 0 ✅
+Exit code: 0
 ```
 ```
 
@@ -295,14 +295,14 @@ head -20 file / tail -20 file           # Sample large files
 
 ## Common Mistakes to Avoid
 
-### ❌ DON'T:
+### DON'T:
 - Stop after showing content without analysis
 - Ask confirmation questions
 - Skip testing after code changes
 - Delete without searching first
 - Give partial responses
 
-### ✅ DO:
+### DO:
 - Complete full user request
 - Show content AND analysis
 - Test modifications
@@ -1112,11 +1112,11 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
                 
                 # Process choice
                 if choice in ['1', 'y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
-                    print("\n✅ User Allowed\n", file=sys.stderr)
+                    print("\nUser Allowed\n", file=sys.stderr)
                     return True
                 elif choice in ['2', 'a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
                     SESSION_STATE["always_accept"] = True
-                    print("\n✅ User Allowed (will apply to all following actions)\n", file=sys.stderr)
+                    print("\nUser Allowed (will apply to all following actions)\n", file=sys.stderr)
                     return True
                 else:
                     print("\n❌ Cancelled\n", file=sys.stderr)
@@ -1175,11 +1175,11 @@ def get_confirmation(action: str, details: Dict[str, Any], is_batch: bool = Fals
     
     # Xử lý lựa chọn
     if choice in ['1', 'y', 'yes', 'đồng ý', 'dong y', 'có', 'co']:
-        print("\n✅ User Allowed\n", file=sys.stderr)
+        print("\nUser Allowed\n", file=sys.stderr)
         return True
     elif choice in ['2', 'a', 'always', 'luôn', 'luon', 'luôn đồng ý', 'luon dong y']:
         SESSION_STATE["always_accept"] = True
-        print("\n✅ User Allowed (will apply to all following actions)\n", file=sys.stderr)
+        print("\nUser Allowed (will apply to all following actions)\n", file=sys.stderr)
         return True
     else:
         print("\n❌ Cancelled\n", file=sys.stderr)
