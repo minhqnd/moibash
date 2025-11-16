@@ -1,210 +1,12 @@
-# Moibash - AI Chat Agent với Function Calling
+# Moibash - AI Agent đơn giản với thao tác filesystem
 
-[![OSG Project](https://img.shields.io/badge/OSG-Project-blue)](https://github.com/minhqnd/moibash)
+[![OSG Project](https://img.shields.io/badge/OSG202-Project-blue)](https://github.com/minhqnd/moibash)
 [![Bash](https://img.shields.io/badge/Bash-5.0+-green)](https://www.gnu.org/software/bash/)
-[![Gemini AI](https://img.shields.io/badge/Gemini-2.0--flash-orange)](https://ai.google.dev/)
+[![Gemini AI](https://img.shields.io/badge/Gemini-2.5--flash-orange)](https://ai.google.dev/)
 
-**Moibash** là một hệ thống AI chat agent thông minh chạy trên terminal, sử dụng **Gemini Function Calling** để thực hiện các tác vụ thực tế như quản lý file, lịch, thời tiết, tạo ảnh, và tìm kiếm thông tin.
+![moibash](docs/images/moibash.png)
 
-## 🎯 Tổng quan
-
-Moibash là một framework bash script cho phép tương tác với AI thông qua giao diện chat terminal. Hệ thống sử dụng **intent classification** để phân loại yêu cầu người dùng và route đến các **agents** chuyên biệt, mỗi agent sử dụng **Gemini Function Calling** để thực hiện các tác vụ cụ thể.
-
-### ✨ Tính năng chính
-
-- 🤖 **Chat thông minh**: Trò chuyện tự nhiên với AI
-- 📁 **Quản lý file**: Tạo, đọc, sửa, xóa file/folder an toàn
-- 🔄 **Rollback**: Hoàn tác thay đổi file, backup tự động (tính năng mới!)
-- 📅 **Quản lý lịch**: Tích hợp Google Calendar
-- 🌤️ **Thời tiết**: Tra cứu thời tiết theo địa điểm
-- 🎨 **Tạo ảnh**: Generate ảnh từ mô tả
-- 🔍 **Tìm kiếm**: Google search cho thông tin thời gian thực
-- 🛡️ **An toàn**: Xác nhận trước khi thực hiện thao tác nguy hiểm
-
-## 📁 Cấu trúc dự án
-
-```
-moibash/
-├── main.sh                 # Giao diện chat chính
-├── router.sh               # Router + Intent classification
-├── chat_history_*.txt      # Lịch sử chat (tạm thời)
-├── .env                    # Cấu hình API keys
-├── docs/                   # Tài liệu
-│   └── filesystem/         # Docs cho filesystem agent
-├── images/                 # Thư mục lưu ảnh tạo ra
-└── tools/                  # Các agents
-    ├── intent.sh           # Intent classifier
-    ├── chat.sh             # Chat agent
-    ├── image_create.sh     # Image generation agent
-    ├── google_search.sh    # Search agent
-    ├── filesystem/         # Filesystem agent
-    │   ├── function_call.py
-    │   ├── filesystem.sh
-    │   └── README.md
-    ├── calendar/           # Calendar agent
-    │   ├── auth.sh
-    │   ├── calendar.sh
-    │   ├── function_call.sh
-    │   └── README.md
-    └── weather/            # Weather agent
-        ├── function_call.sh
-        ├── weather.sh
-        └── README.md
-```
-
-## 🔄 Flow hoạt động
-
-```
-User Input (Tiếng Việt)
-    ↓
-main.sh (Chat Interface)
-    ↓
-router.sh (Intent Classification)
-    ↓
-Intent: filesystem/calendar/weather/image_create/google_search/chat
-    ↓
-Tool Execution (Gemini Function Calling)
-    ↓
-[Confirmation] (cho operations nguy hiểm)
-    ↓
-Execute Operation
-    ↓
-Natural Language Response
-    ↓
-User
-```
-
-### Chi tiết từng bước
-
-1. **User Input**: Người dùng nhập câu hỏi tự nhiên
-2. **Intent Classification**: `tools/intent.sh` phân loại intent bằng Gemini API
-3. **Routing**: `router.sh` route đến agent tương ứng
-4. **Function Calling**: Agent gọi Gemini với function declarations
-5. **Confirmation**: Cho operations nguy hiểm (create, delete, etc.)
-6. **Execution**: Thực thi tác vụ thực tế
-7. **Response**: Gemini tạo response tự nhiên
-
-## 🗂️ Cấu trúc dữ liệu
-
-### Intent Classification
-
-```json
-{
-  "intents": [
-    "chat",           // Trò chuyện thông thường
-    "filesystem",     // Thao tác file/folder
-    "calendar",       // Quản lý lịch Google
-    "weather",        // Tra cứu thời tiết
-    "image_create",   // Tạo ảnh AI
-    "google_search"   // Tìm kiếm web
-  ]
-}
-```
-
-### Function Calling Schema
-
-Mỗi agent định nghĩa functions cho Gemini:
-
-```json
-{
-  "tools": [{
-    "functionDeclarations": [{
-      "name": "function_name",
-      "description": "Mô tả function",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "param1": {"type": "string", "description": "..."},
-          "param2": {"type": "number", "description": "..."}
-        },
-        "required": ["param1"]
-      }
-    }]
-  }]
-}
-```
-
-### Session State
-
-```json
-{
-  "always_accept": false,    // Cho filesystem operations
-  "auth_tokens": {...},      // Google OAuth tokens
-  "chat_history": [...]      // Lịch sử cuộc hội thoại
-}
-```
-
-## 💡 Ví dụ sử dụng
-
-### 1. Chat thông thường
-```
-➜ hello, bạn là ai?
-Agent: Xin chào! Tôi là Chat Agent, một AI assistant thông minh...
-```
-
-### 2. Quản lý file
-```
-➜ tạo file hello.py với nội dung print hello world và chạy nó
-⚠️  CẦN XÁC NHẬN THAO TÁC
-====================================
-📝 Tạo file: hello.py
-   Nội dung: print('Hello World')...
-====================================
-Lựa chọn của bạn: y
-✅ Đã tạo và chạy file hello.py thành công!
-Output: Hello World
-```
-
-### 3. Rollback (hoàn tác thay đổi)
-```
-➜ sửa file config.json, xóa dòng debug
-✅ Đã cập nhật config.json
-
-➜ chạy app
-❌ App crashed vì thiếu config!
-
-➜ /rollback
-🔄 Đang rollback các thao tác filesystem...
-✅ Đã rollback thành công!
-Khôi phục được 1 file về trạng thái ban đầu.
-
-➜ /rollback-status
-📋 Trạng thái Backup:
-Không có thao tác nào được backup (đã rollback)
-```
-
-### 4. Quản lý lịch
-```
-➜ thêm lịch họp team lúc 9h sáng mai
-✅ Đã thêm lịch thành công!
-📅 Họp team
-🕐 09:00 - 10:00 (ngày mai)
-```
-
-### 5. Thời tiết
-```
-➜ thời tiết ở Hà Nội hôm nay thế nào?
-🌤️ Thông tin thời tiết tại Hà Nội, Vietnam
-🌡️ Nhiệt độ: 25.5°C
-☔ Lượng mưa: 0.0 mm
-💬 Phù hợp để đi dạo ngoài trời
-```
-
-### 6. Tạo ảnh
-```
-➜ vẽ một con mèo dễ thương
-🎨 Đang tạo ảnh...
-✅ Ảnh đã được tạo: images/cat_20241103_143022.png
-```
-
-### 7. Tìm kiếm
-```
-➜ tin tức về AI mới nhất
-🔍 Tìm thấy 5 kết quả:
-1. Google Gemini 2.0 ra mắt...
-2. OpenAI GPT-5 sắp tới...
-...
-```
+**Moibash** là hệ thống AI filesystem manager thông minh, cho phép quản lý file và thư mục một cách an toàn thông qua giao diện chat tự nhiên. Sử dụng **Gemini Function Calling** để thực hiện các thao tác filesystem với tính năng auto-fix, diff preview, và confirmation system.
 
 ## 🚀 Cài đặt nhanh
 
@@ -230,29 +32,7 @@ moibash
 
 **Moibash sẽ tự động hỏi API key ngay lần chạy đầu tiên!** 🎉
 
-📖 **Xem hướng dẫn chi tiết: [API_KEY_SETUP.md](API_KEY_SETUP.md)**
-
-### 🔧 Cài đặt cục bộ (Local Install)
-
-Nếu bạn muốn clone repository:
-
-```bash
-# Clone repository
-git clone https://github.com/minhqnd/moibash.git
-cd moibash
-
-# Chạy script cài đặt
-./install.sh
-
-# Chạy moibash - sẽ tự động hỏi API key nếu chưa có
-moibash
-```
-
-Script sẽ tự động kiểm tra và cài đặt tương tự remote install.
-
-📖 **Xem [INSTALL.md](INSTALL.md) để biết chi tiết và troubleshooting**
-
-📋 **Xem [REQUIREMENTS.md](REQUIREMENTS.md) để biết yêu cầu hệ thống chi tiết**
+**[Đọc chi tiết cách cài đặt](#-chi-tiết-cài-đặt-và-thiết-lập)**
 
 ### Kiểm tra hệ thống
 
@@ -276,7 +56,294 @@ moibash --update
 moibash --uninstall
 ```
 
+## 🎯 Tổng quan
+
+Moibash là framework bash script tích hợp AI để quản lý filesystem. Hệ thống sử dụng **intent classification** để phân loại yêu cầu và route đến filesystem agent chuyên biệt, kết hợp **Gemini Function Calling** với shell scripts để thực hiện các thao tác file an toàn.
+
+### ✨ Tính năng chính
+
+- 🤖 **Chat thông minh**: Giao diện chat tự nhiên với AI
+- 📁 **Filesystem Management**: Đọc, tạo, sửa, xóa file/thư mục an toàn
+- 🔄 **Auto-Fix & Test Loop**: Tự động sửa lỗi code và test (max 3 lần)
+- 🎨 **Diff Preview**: Xem preview thay đổi trước khi apply
+- 🛡️ **Confirmation System**: Xác nhận trước thao tác nguy hiểm
+- 🔍 **Advanced Search**: Tìm kiếm file theo pattern, recursive
+- 🐚 **Shell Operations**: Thực thi lệnh shell an toàn
+- 📊 **Performance Optimized**: Xử lý file lớn theo chunks
+- 🔒 **Security First**: Validate paths, prevent traversal attacks
+
+## 📁 Cấu trúc dự án
+
+```
+moibash/
+├── main.sh                 # Giao diện chat chính
+├── router.sh               # Router + Intent classification
+├── chat_history_*.txt      # Lịch sử chat (tạm thời)
+├── .env                    # Cấu hình API keys
+├── docs/                   # Tài liệu
+│   └── filesystem/         # Docs filesystem agent
+├── images/                 # Thư mục lưu ảnh (nếu có)
+└── tools/                  # Các agents
+    ├── intent.sh           # Intent classifier
+    ├── chat.sh             # Chat agent
+    ├── image_create.sh     # Image generation agent
+    ├── google_search.sh    # Search agent
+    ├── filesystem/         # Filesystem agent (CHÍNH)
+    │   ├── function_call.py
+    │   ├── backup_manager.py
+    │   ├── createfile.sh
+    │   ├── deletefile.sh
+    │   ├── executefile.sh
+    │   ├── listfiles.sh
+    │   ├── processtool.sh
+    │   ├── readfile.sh
+    │   ├── renamefile.sh
+    │   ├── searchfiles.sh
+    │   ├── shell.sh
+    │   ├── updatefile.sh
+    │   └── FILESYSTEM_TOOL_DOCUMENTATION.md
+    ├── calendar/           # Calendar agent
+    │   ├── auth.sh
+    │   ├── calendar.sh
+    │   ├── function_call.sh
+    │   └── README.md
+    └── weather/            # Weather agent
+        ├── function_call.sh
+        ├── weather.sh
+        └── README.md
+```
+
+## 🔄 Flow hoạt động
+
+```
+User Input (Tiếng Việt)
+    ↓
+main.sh (Chat Interface)
+    ↓
+router.sh (Intent Classification)
+    ↓
+Intent: filesystem/calendar/weather/image_create/google_search/chat
+    ↓
+Filesystem Agent (function_call.py)
+    ↓
+Gemini Function Calling
+    ↓
+Shell Scripts (.sh files)
+    ↓
+[Confirmation] (cho operations nguy hiểm)
+    ↓
+Execute Operation + Auto-Fix Loop
+    ↓
+Natural Language Response
+    ↓
+User
+```
+
+Mermaid Flow: **[Moibash Flowchart](docs/moibash_flowchart.md)**
+
+### Chi tiết từng bước
+
+1. **User Input**: Người dùng nhập yêu cầu tự nhiên về filesystem
+2. **Intent Classification**: `tools/intent.sh` phân loại intent bằng Gemini API
+3. **Routing**: `router.sh` route đến filesystem agent
+4. **Function Calling**: Agent gọi Gemini với function declarations cho filesystem, đọc kỹ hơn ở **[Gemini Function Calling Flow](docs/gemini_function_calling_flow.md)**
+5. **Confirmation**: Hiển thị preview/diff cho operations nguy hiểm
+6. **Execution**: Shell scripts thực thi + auto-fix loop nếu cần
+7. **Response**: Gemini tạo response tự nhiên với kết quả
+
+## 📁 Filesystem Functions (API chính)
+
+### Core Operations
+- `read_file(file_path, start_line?, end_line?)` - Đọc file, hỗ trợ chunk reading
+- `create_file(file_path, content)` - Tạo file mới với confirmation
+- `update_file(file_path, content, mode)` - Cập nhật file với diff preview
+- `delete_file(file_path)` - Xóa file/thư mục với backup
+- `rename_file(old_path, new_path)` - Đổi tên/move files
+
+### Advanced Operations
+- `list_files(dir_path, pattern?, recursive?)` - Liệt kê files theo pattern
+- `search_files(dir_path, pattern, recursive?)` - Tìm kiếm files advanced
+- `shell(action, target, args?, working_dir?)` - Thực thi shell commands an toàn
+
+### Smart Features
+- **Auto-Fix Loop**: Tự sửa syntax/logic errors (max 3 attempts)
+- **Diff Preview**: Git-style diff với màu sắc trước khi apply
+- **Test Integration**: Chạy tests sau khi fix code
+- **Backup System**: Tự động backup trước destructive operations
+
+## 🛡️ Security & Safety
+
+### Confirmation System
+Tất cả operations nguy hiểm đều yêu cầu xác nhận:
+- ✅ Create/Update/Delete/Rename files
+- ✅ Execute shell commands/scripts
+- ✅ Operations trên system paths
+
+**Options:**
+- `1`: Allow once (chỉ lần này)
+- `2`: Allow always (session này)
+- `3`: Cancel
+
+### Path Security
+- ✅ Validate absolute paths bắt buộc
+- ❌ Block system directories (`/etc`, `/root`)
+- ✅ Prevent path traversal (`../../../etc/passwd`)
+- ✅ Permission checks trước operations
+
+## 🎨 Diff Preview Feature
+
+### Git-style Diff Display
+```
+╭─ Diff Preview: config.json
+--- a/config.json
++++ b/config.json
+@@ -1,3 +1,4 @@
+ {
+-  "debug": false
++  "debug": true,
++  "new_setting": "value"
+ }
+╰─────────────────────────────────
+```
+
+### Color Coding
+- 🔴 **Red**: Deleted lines (`-`)
+- 🟢 **Green**: Added lines (`+`)
+- ⚪ **Gray**: Context lines
+- 🔵 **Cyan**: Hunk headers
+
+## 🔄 Auto-Fix & Test Loop
+
+### Intelligent Bug Fixing
+Agent tự động phát hiện và sửa lỗi với test loop:
+
+```
+1. Code Analysis → 2. Identify Issues → 3. Generate Fix → 4. Auto Test → 5. Verify → 6. Success/Fail
+     ↓                      ↓                      ↓                     ↓                ↓              ↓
+   Read file            Syntax/Logic errors     Apply fix           Run tests       Check output    Report result
+   Check imports        Security issues         Diff preview        Exit codes      Error analysis  Next iteration
+```
+
+### Test Strategies
+- **Python**: `py_compile`, `import`, `pytest`, `flake8`
+- **JavaScript**: `node --check`, `eslint`, `tsc --noEmit`
+- **Shell**: `bash -n`, `shellcheck`
+- **Java**: `javac`, `maven/gradle test`
+
+**Max 3 attempts** trước khi báo fail và đề xuất manual fix.
+
+## 💡 Ví dụ sử dụng
+
+### 1. Basic File Operations
+```
+➜ tạo file hello.py với nội dung print('Hello World')
+⚠️  CẦN XÁC NHẬN
+====================================
+📝 Tạo file: hello.py
+   Nội dung: print('Hello World')
+====================================
+Lựa chọn của bạn: 1
+✅ Đã tạo file hello.py thành công!
+```
+
+### 2. Advanced Reading
+```
+➜ đọc file large.py từ dòng 100 đến 150
+📖 Đọc file large.py (lines 100-150)...
+[content displayed]
+```
+
+### 3. Smart Code Fixing
+```
+➜ sửa lỗi syntax trong utils.py
+🔧 Phát hiện lỗi: Missing colon on line 25
+🔄 Auto-fix attempt 1/3: Adding colon
+✅ Test passed: python -m py_compile utils.py
+✅ Đã sửa thành công!
+```
+
+### 4. Diff Preview Update
+```
+➜ cập nhật config.json, thêm setting "debug": true
+🎨 Diff Preview:
+--- a/config.json
++++ b/config.json
+@@ -2,4 +2,5 @@
+   "port": 3000,
+-  "env": "prod"
++  "env": "dev",
++  "debug": true
+ }
+Lựa chọn của bạn: 1
+✅ Đã cập nhật config.json
+```
+
+### 5. Advanced Search
+```
+➜ tìm tất cả files Python có chứa "class"
+🔍 Tìm thấy 5 files:
+1. models/user.py
+2. services/auth.py
+3. utils/helpers.py
+4. main.py
+5. tests/test_user.py
+```
+
+### 6. Safe Shell Operations
+```
+➜ chạy lệnh git status
+⚠️  CẦN XÁC NHẬN
+====================================
+🐚 Shell Command: git status
+====================================
+Lựa chọn của bạn: 2
+✅ Output:
+On branch main
+Your branch is up to date with 'origin/main'
+```
+
+### 7. Batch Operations
+```
+➜ xóa tất cả files .tmp trong thư mục current
+🔍 Tìm thấy: temp1.tmp, temp2.tmp, temp3.tmp
+⚠️  Xóa 3 files? [1/2/3]
+Lựa chọn của bạn: 1
+✅ Đã xóa thành công 3 files (với backup)
+```
+
+### 8. Code Analysis Pipeline
+```
+➜ phân tích chất lượng code trong project
+📊 Code Analysis Report:
+- Python files: 12/12 syntax OK
+- Test coverage: 85%
+- Linting issues: 3 (minor)
+- Security scan: Clean
+```
+
 ## 🚀 Chi tiết cài đặt và thiết lập
+
+### 🔧 Cài đặt cục bộ (Local Install)
+
+Nếu bạn muốn clone repository:
+
+```bash
+# Clone repository
+git clone https://github.com/minhqnd/moibash.git
+cd moibash
+
+# Chạy script cài đặt
+./install.sh
+
+# Chạy moibash - sẽ tự động hỏi API key nếu chưa có
+moibash
+```
+
+Script sẽ tự động kiểm tra và cài đặt tương tự remote install.
+
+📖 **Xem [INSTALL.md](INSTALL.md) để biết chi tiết và troubleshooting**
+
+📋 **Xem [REQUIREMENTS.md](REQUIREMENTS.md) để biết yêu cầu hệ thống chi tiết**
 
 ### Bước 1: Clone repository
 ```bash
@@ -349,118 +416,47 @@ moibash
 Agent: Xin chào! Tôi là Chat Agent...
 ```
 
-## 🛠️ Cách tạo tool mới
+## 🛠️ Cách mở rộng Filesystem Tool
 
-### Bước 1: Tạo thư mục tool
-```bash
-mkdir tools/new_tool
-cd tools/new_tool
-```
+### Thêm function mới
 
-### Bước 2: Tạo function_call script
-
-Tạo file `function_call.sh`:
+1. **Tạo shell script** trong `tools/filesystem/`:
 ```bash
 #!/bin/bash
+# newfunction.sh
 
-# Load environment
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../../.env"
+# Validate input
+file_path="$1"
 
-USER_MESSAGE="$1"
+# Execute operation
+# ... implementation ...
 
-# Define functions for Gemini
-FUNCTIONS='[
-  {
-    "name": "your_function",
-    "description": "Mô tả function",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "param1": {"type": "string", "description": "Mô tả param"}
-      },
-      "required": ["param1"]
-    }
+# Return JSON
+echo "{\"success\": true, \"result\": \"...\"}"
+```
+
+2. **Cập nhật function_call.py**:
+```python
+# Add to FUNCTIONS
+{
+  "name": "new_function",
+  "description": "Mô tả function",
+  "parameters": {
+    "type": "object",
+    "properties": {"param": {"type": "string"}},
+    "required": ["param"]
   }
-]'
-
-# Call Gemini API
-response=$(curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d "{
-    \"contents\": [{\"parts\": [{\"text\": \"$USER_MESSAGE\"}]}],
-    \"tools\": [{\"functionDeclarations\": $FUNCTIONS}]
-  }")
-
-# Parse and execute function calls
-# ... (implement function execution logic)
-```
-
-### Bước 3: Tạo core logic script
-
-Tạo file `new_tool.sh`:
-```bash
-#!/bin/bash
-
-# Core implementation
-your_function() {
-  param1="$1"
-  # Implement your logic here
-  echo "Result: $param1"
 }
 
-# Main
-case "$1" in
-  "your_function")
-    your_function "$2"
-    ;;
-  *)
-    echo "Unknown function: $1"
-    ;;
-esac
+# Add handler
+elif function_name == "new_function":
+    result = subprocess.run(["./newfunction.sh", param],
+                          capture_output=True, text=True)
 ```
 
-### Bước 4: Cập nhật intent classification
-
-Thêm vào `tools/intent.sh`:
+3. **Test**:
 ```bash
-# Trong system instruction
-7. new_tool: Mô tả khi nào dùng new_tool
-
-# Trong keyword matching
-elif any(word in message for word in ['keyword1', 'keyword2']):
-    print('new_tool')
-```
-
-### Bước 5: Cập nhật router
-
-Thêm vào `router.sh`:
-```bash
-new_tool)
-    "$TOOLS_DIR/new_tool/function_call.sh" "$message"
-    ;;
-```
-
-### Bước 6: Tạo documentation
-
-Tạo `README.md` với:
-- Mô tả tính năng
-- Cách sử dụng
-- API reference
-- Ví dụ
-
-### Bước 7: Test và debug
-
-```bash
-# Test intent
-./tools/intent.sh "test message"
-
-# Test function calling
-./tools/new_tool/function_call.sh "test message"
-
-# Test qua router
-./router.sh "test message"
+./tools/filesystem/function_call.py "test new function"
 ```
 
 ## 🔗 Tích hợp
@@ -477,14 +473,6 @@ create_file "test.txt" "content"
 get_weather "Hanoi"
 ```
 
-### API Integration
-
-```bash
-# Call via HTTP (có thể extend)
-curl -X POST http://localhost:8080/chat \
-  -d '{"message": "thời tiết Hà Nội"}'
-```
-
 ### Custom Scripts
 
 ```bash
@@ -496,130 +484,42 @@ curl -X POST http://localhost:8080/chat \
 ./router.sh "tạo ảnh biểu đồ thống kê"
 ```
 
-## 🔧 Mở rộng
-
-### Thêm agents mới
-
-1. **Domain-specific agents**: Database, Docker, Git, etc.
-2. **Multi-modal**: Voice, image input
-3. **Multi-language**: Hỗ trợ nhiều ngôn ngữ
-4. **Plugin system**: Load agents dynamically
-
-### Cải thiện AI
-
-1. **Better context**: Lưu trữ conversation history
-2. **Memory**: Nhớ preferences và patterns
-3. **Learning**: Fine-tune trên user behavior
-4. **Multi-turn**: Complex multi-step conversations
-
-### Performance
-
-1. **Caching**: Cache API responses
-2. **Async**: Non-blocking operations
-3. **Batch**: Process multiple requests
-4. **CDN**: Distribute agents geographically
-
-### Security
-
-1. **Sandboxing**: Isolate dangerous operations
-2. **Rate limiting**: Prevent API abuse
-3. **Audit logging**: Track all operations
-4. **Encryption**: Encrypt sensitive data
-
-## 🔧 Bảo trì
+## 🔧 Bảo trì & Troubleshooting
 
 ### Monitoring
-
 ```bash
-# Check system status
-./main.sh status
-
-# View logs
+# Check logs
 tail -f chat_history_*.txt
 
-# Check API quota
+# Test filesystem functions
+./tools/filesystem/function_call.py "liệt kê thư mục ."
+```
+
+### Common Issues
+
+#### "Permission denied"
+```bash
+# Check permissions
+ls -la file.txt
+
+# Fix permissions
+chmod 644 file.txt
+```
+
+#### "Path not found"
+```bash
+# Use absolute paths
+read_file("/full/path/to/file.txt")
+
+# Check current directory
+pwd
+```
+
+#### "API quota exceeded"
+```bash
+# Check quota
 curl "https://generativelanguage.googleapis.com/v1/quota?key=$GEMINI_API_KEY"
 ```
-
-### Backup
-
-```bash
-# Backup configuration
-cp .env .env.backup
-
-# Backup chat history
-cp chat_history_*.txt backup/
-
-# Backup generated content
-cp -r images/ backup/
-```
-
-### Update
-
-```bash
-# Update codebase
-git pull origin main
-
-# Update dependencies
-pip install --upgrade -r requirements.txt
-
-# Update permissions
-chmod +x *.sh tools/**/*.sh
-```
-
-### Troubleshooting
-
-#### Lỗi: "API key not found"
-```bash
-# Check .env file
-cat .env
-
-# Verify key format
-echo $GEMINI_API_KEY | head -c 10
-```
-
-#### Lỗi: "Permission denied"
-```bash
-# Fix permissions
-chmod +x main.sh router.sh
-chmod +x tools/**/*.sh
-```
-
-#### Lỗi: "Tool not found"
-```bash
-# Check tool exists
-ls -la tools/
-
-# Verify intent routing
-./tools/intent.sh "test message"
-```
-
-#### Lỗi: "Function call failed"
-```bash
-# Debug API response
-curl -v "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"contents": [{"parts": [{"text": "test"}]}]}'
-```
-
-## 📊 Thống kê & Metrics
-
-### API Usage
-- **Gemini API**: ~50 requests/day (free tier)
-- **Google Calendar**: 1M requests/day
-- **Open-Meteo**: Unlimited (free)
-- **Geocoding**: 10K requests/day
-
-### Performance
-- **Response time**: 2-5 seconds
-- **Intent classification**: <1 second
-- **File operations**: <100ms
-- **API calls**: 1-3 per request
-
-### Reliability
-- **Uptime**: 99.9% (local execution)
-- **Error rate**: <1%
-- **Recovery**: Auto-retry failed requests
 
 ## 🤝 Contributing
 
@@ -635,9 +535,6 @@ git checkout -b feature/new-agent
 # Make changes
 # ... code ...
 
-# Test thoroughly
-./test_all.sh
-
 # Submit PR
 git push origin feature/new-agent
 ```
@@ -646,27 +543,7 @@ git push origin feature/new-agent
 - **Bash**: ShellCheck compliant
 - **Python**: PEP 8 style
 - **Documentation**: Clear, comprehensive
-- **Testing**: Unit tests for all functions
 - **Security**: Input validation, safe operations
-
-### Testing
-```bash
-# Run all tests
-./test_all.sh
-
-# Test specific agent
-./tools/filesystem/test.sh
-
-# Integration test
-./integration_test.sh
-```
-
-## 📚 Tài liệu tham khảo
-
-- [Gemini Function Calling](https://ai.google.dev/docs/function_calling)
-- [Google Calendar API](https://developers.google.com/calendar/api)
-- [Open-Meteo API](https://open-meteo.com/en/docs)
-- [Bash Best Practices](https://google.github.io/styleguide/shellguide.html)
 
 ## 📄 License
 
@@ -674,18 +551,19 @@ MIT License - Xem file `LICENSE` để biết thêm chi tiết.
 
 ## 👥 Tác giả
 
-- **Minh Nguyen** - *Lead Developer* - [minhqnd](https://github.com/minhqnd)
-- **OSG Project** - *Academic Project*
+- **Minh Quang** - [minhqnd](https://github.com/minhqnd)
+- **Toàn - Quý - Dũng - Huy** - Cho vài module nhỏ và làm tester
+- **AI models**: Gemini, Claude, Chat GPT, Grok 🙏 (love you all)
 
 ## 🙏 Acknowledgments
 
 - Google AI for Gemini API
 - Open-Meteo for weather data
-- Google Calendar team
-- Bash community
+- Google Calendar Documentation
+- Bash documentation and community
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: November 3, 2025  
+**Version**: 2.1.0  
+**Last Updated**: November 16, 2025  
 **Repository**: [https://github.com/minhqnd/moibash](https://github.com/minhqnd/moibash)
