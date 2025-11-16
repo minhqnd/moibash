@@ -13,9 +13,9 @@
 chat_history*.txt
 
 # Generated images
-images/
-*.png
-*.jpg
+# images/
+# *.png
+# *.jpg
 
 # macOS
 .DS_Store
