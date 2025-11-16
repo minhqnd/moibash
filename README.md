@@ -23,6 +23,7 @@ Script sẽ tự động:
 - ✅ Tải xuống moibash từ GitHub vào `~/.moibash`
 - ✅ Tạo symlink để chạy từ bất kỳ đâu
 - ✅ Cấu hình quyền thực thi
+- ✅ Permissions và cấu hình
 
 Sau khi cài đặt xong, chạy moibash lần đầu:
 
@@ -32,15 +33,7 @@ moibash
 
 **Moibash sẽ tự động hỏi API key ngay lần chạy đầu tiên!** 🎉
 
-**[Đọc chi tiết cách cài đặt](#-chi-tiết-cài-đặt-và-thiết-lập)**
-
-### Kiểm tra hệ thống
-
-Script cài đặt sẽ tự động kiểm tra:
-- ✅ Bash, Python 3.6+, pip3, curl, git
-- ✅ Internet connection
-- ✅ API keys (yêu cầu nhập nếu chưa có)
-- ✅ Permissions và cấu hình
+**[Cách cài đặt chi tiết](#-chi-tiết-cài-đặt-và-thiết-lập)**
 
 ### Cập nhật
 
@@ -340,10 +333,6 @@ moibash
 ```
 
 Script sẽ tự động kiểm tra và cài đặt tương tự remote install.
-
-📖 **Xem [INSTALL.md](INSTALL.md) để biết chi tiết và troubleshooting**
-
-📋 **Xem [REQUIREMENTS.md](REQUIREMENTS.md) để biết yêu cầu hệ thống chi tiết**
 
 ### Bước 1: Clone repository
 ```bash
