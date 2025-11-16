@@ -74,7 +74,6 @@ moibash/
 ├── chat_history_*.txt      # Lịch sử chat (tạm thời)
 ├── .env                    # Cấu hình API keys
 ├── docs/                   # Tài liệu
-│   └── filesystem/         # Docs filesystem agent
 ├── images/                 # Thư mục lưu ảnh (nếu có)
 └── tools/                  # Các agents
     ├── intent.sh           # Intent classifier
@@ -94,7 +93,6 @@ moibash/
     │   ├── searchfiles.sh
     │   ├── shell.sh
     │   ├── updatefile.sh
-    │   └── FILESYSTEM_TOOL_DOCUMENTATION.md
     ├── calendar/           # Calendar agent
     │   ├── auth.sh
     │   ├── calendar.sh
