@@ -513,7 +513,7 @@ curl "https://generativelanguage.googleapis.com/v1/quota?key=$GEMINI_API_KEY"
 ### Development Setup
 ```bash
 # Fork repository
-git clone https://github.com/your-username/moibash.git
+git clone https://github.com/minhqnd/moibash.git
 cd moibash
 
 # Create feature branch
