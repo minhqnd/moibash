@@ -201,6 +201,30 @@ chmod +x "$INSTALL_DIR"/tools/*/*.py 2>/dev/null || true
 echo -e "${GREEN}✅ Permissions set${RESET}"
 echo ""
 
+# Install Python dependencies
+echo -e "${BLUE}🐍 Installing Python dependencies...${RESET}"
+if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+    echo -e "${BLUE}📦 Installing packages from requirements.txt...${RESET}"
+    cd "$INSTALL_DIR"
+    if pip3 install -r requirements.txt --user 2>/dev/null; then
+        echo -e "${GREEN}✅ Python dependencies installed${RESET}"
+    else
+        echo -e "${YELLOW}⚠️  Failed to install with --user, trying system-wide...${RESET}"
+        if sudo pip3 install -r requirements.txt 2>/dev/null; then
+            echo -e "${GREEN}✅ Python dependencies installed (system-wide)${RESET}"
+        else
+            echo -e "${RED}❌ Failed to install Python dependencies!${RESET}"
+            echo -e "${YELLOW}You may need to install them manually:${RESET}"
+            echo -e "${CYAN}  pip3 install -r requirements.txt${RESET}"
+            echo -e "${YELLOW}Or with sudo:${RESET}"
+            echo -e "${CYAN}  sudo pip3 install -r requirements.txt${RESET}"
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠️  requirements.txt not found, skipping Python dependencies${RESET}"
+fi
+echo ""
+
 # Create empty .env file if not exists
 ENV_FILE="$INSTALL_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then

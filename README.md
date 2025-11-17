@@ -21,6 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/minhqnd/moibash/main/install.sh | b
 Script sẽ tự động:
 - ✅ Kiểm tra yêu cầu hệ thống (Bash, Python 3.6+, curl, git, pip3)
 - ✅ Tải xuống moibash từ GitHub vào `~/.moibash`
+- ✅ Cài đặt Python dependencies (requests)
 - ✅ Tạo symlink để chạy từ bất kỳ đâu
 - ✅ Cấu hình quyền thực thi
 - ✅ Permissions và cấu hình
@@ -71,6 +72,7 @@ Moibash là framework bash script tích hợp AI để quản lý filesystem. H�
 moibash/
 ├── main.sh                 # Giao diện chat chính
 ├── router.sh               # Router + Intent classification
+├── requirements.txt        # Python dependencies
 ├── chat_history_*.txt      # Lịch sử chat (tạm thời)
 ├── .env                    # Cấu hình API keys
 ├── docs/                   # Tài liệu
@@ -340,7 +342,13 @@ cd moibash
 
 ### Bước 2: Cài đặt dependencies
 
-**Python 3** (cho một số agents):
+**Python dependencies** sẽ được cài đặt tự động bởi script `install.sh`. Nếu cần cài đặt thủ công:
+
+```bash
+pip3 install -r requirements.txt
+```
+
+**Python 3** (cho một số agents) - đã được kiểm tra tự động:
 ```bash
 # Ubuntu/Debian
 sudo apt install python3 python3-pip
@@ -349,7 +357,7 @@ sudo apt install python3 python3-pip
 brew install python3
 ```
 
-**curl** (cho API calls):
+**curl** (cho API calls) - đã được kiểm tra tự động:
 ```bash
 # Ubuntu/Debian
 sudo apt install curl
