@@ -17,7 +17,7 @@ import requests
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / "../../.env"
 MAX_ITERATIONS = 10
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
 
 # Load environment variables
 def load_env():

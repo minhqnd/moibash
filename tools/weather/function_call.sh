@@ -24,7 +24,7 @@ escaped_message=$(echo "$USER_MESSAGE" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 # Gọi Gemini với Function Calling
 response=$(curl -s -X POST \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -d "{
       \"contents\": [{
@@ -102,7 +102,7 @@ Hãy trả lời CHI TIẾT và THÂN THIỆN bằng tiếng Việt:
 Viết tự nhiên như đang trò chuyện với bạn bè, nhưng ngắn gọn nhát có thể!"
 
 final_response=$(curl -s -X POST \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$GEMINI_API_KEY" \
     -H 'Content-Type: application/json' \
     -d "{
       \"contents\": [{

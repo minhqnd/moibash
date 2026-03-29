@@ -29,7 +29,7 @@ echo "🎨 Đang tạo ảnh..."
 
 # Gọi API và save ảnh
 curl -s -X POST \
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=$GEMINI_API_KEY" \
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-image-generation:generateContent?key=$GEMINI_API_KEY" \
     -H "Content-Type: application/json" \
     -d "{
       \"contents\": [{
